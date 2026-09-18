@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <meta name="theme-color" content="#16181d" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
-<meta name="description" content="Carnet de musculation — suivi des séances, charges, records et progression.">
+<meta name="description" content="Carnet de musculation — séances, charges, records et progression.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -89,6 +89,7 @@ h2.vt{font-family:var(--num); font-weight:600; font-size:15px; color:var(--muted
 .card.next{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
 .badges{display:flex; flex-wrap:wrap; gap:6px; margin-top:6px}
 .bdg{font-size:10.5px; border-radius:999px; padding:2px 8px; background:var(--surface2); color:var(--muted)}
+.bdg.grip{background:color-mix(in srgb,var(--good) 15%,var(--surface)); color:var(--good)}
 .bdg.tgt{background:color-mix(in srgb,var(--accent) 16%,var(--surface)); color:var(--accent); font-family:var(--num); font-weight:600}
 .bdg.warn{background:color-mix(in srgb,var(--pr) 20%,var(--surface)); color:var(--pr)}
 .bdg.alt{background:color-mix(in srgb,var(--danger) 16%,var(--surface)); color:var(--danger)}
@@ -169,7 +170,11 @@ h2.vt{font-family:var(--num); font-weight:600; font-size:15px; color:var(--muted
 /* Exercice library */
 .searchbar{width:100%; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px 14px; font-size:15px; margin-bottom:12px}
 .grp-title{font-family:var(--num); font-size:12px; color:var(--muted); margin:16px 2px 8px; font-weight:600}
-.lib-row{display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px 13px; margin-bottom:8px}
+.lib-grip{display:inline-block; font-family:var(--ui); font-weight:600; font-size:10.5px; color:var(--good); background:color-mix(in srgb,var(--good) 14%,transparent); border-radius:999px; padding:1px 8px; margin-left:6px; vertical-align:middle}
+.legende{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:10px 12px; font-size:11.5px; color:var(--muted); line-height:1.6; margin-bottom:10px}
+.legende b{color:var(--text)}
+.lib-tip{display:block; font-family:var(--ui); font-weight:400; font-size:11.5px; color:var(--muted); line-height:1.4; margin-top:4px}
+.lib-row{display:flex; align-items:flex-start; gap:10px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px 13px; margin-bottom:8px}
 .lib-row .nm{flex:1; font-family:var(--num); font-weight:500; font-size:15px}
 .lib-row .tipdot{color:var(--accent); font-size:13px}
 .lib-row .ic{background:none; border:none; color:var(--muted); font-size:17px; padding:4px 6px; border-radius:8px}
@@ -228,6 +233,9 @@ nav button.on{color:var(--accent)}
 @keyframes up{from{transform:translateY(30px);opacity:.4}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){.sheet{animation:none}}
 .sheet h3{font-family:var(--num); margin:4px 0 14px; font-size:18px}
+.sheet-bar{position:sticky; top:-16px; z-index:5; margin:-16px -16px 6px; padding:12px 16px 8px; background:var(--bg); display:flex}
+.sheet-nav{background:var(--surface2); border:1px solid var(--line); color:var(--text); border-radius:10px; padding:9px 14px; font-size:13.5px; font-weight:600}
+.sheet-nav:active{background:var(--surface)}
 .field{margin-bottom:12px}
 .field label{display:block; font-size:12.5px; color:var(--muted); margin-bottom:6px}
 .field input,.field select,.field textarea{width:100%; background:var(--surface); border:1px solid var(--line); border-radius:11px; padding:12px; font-size:15px}
@@ -295,53 +303,70 @@ const GROUPS = ["Pectoraux","Dos","Épaules","Biceps","Triceps","Avant-bras","Ja
 // Bibliothèque type Fitness Park (Technogym + Hammer Strength + poids libres + poulies + zone fonctionnelle)
 const SEED = [
   // Pectoraux
-  ["Développé couché (barre)","Pectoraux"],["Développé incliné (barre)","Pectoraux"],["Développé décliné (barre)","Pectoraux"],
-  ["Développé couché haltères","Pectoraux"],["Développé incliné haltères","Pectoraux"],
-  ["Chest press (machine)","Pectoraux"],["Développé incliné (machine)","Pectoraux"],
-  ["Pec deck / Butterfly","Pectoraux"],["Écarté haltères incliné","Pectoraux"],
-  ["Écarté poulie haute (crossover)","Pectoraux"],["Écarté poulie basse","Pectoraux"],
-  ["Pull-over haltère","Pectoraux"],["Dips (pectoraux)","Pectoraux"],["Pompes","Pectoraux"],
+  ["Développé couché (barre)","Pectoraux","Omoplates serrées et basses, pieds ancrés au sol. Coudes à 45°, jamais ouverts à 90° : c'est l'épaule qui paie.","Pronation"],["Développé incliné (barre)","Pectoraux","30° suffisent. Au-delà, ce sont les épaules qui prennent le travail à la place du haut des pecs.","Pronation"],["Développé décliné (barre)","Pectoraux","Amplitude plus courte donc charge plus lourde. Fais-toi assurer, la sortie de barre est piégeuse.","Pronation"],
+  ["Développé couché haltères","Pectoraux","Descends plus bas qu'à la barre pour étirer le pec. Ne cogne pas les haltères l'un contre l'autre en haut.","Pronation"],["Développé incliné haltères","Pectoraux","Poignets toujours au-dessus des coudes, trajectoire légèrement convergente. Banc à 30° maximum.","Pronation"],
+  ["Chest press (machine)","Pectoraux","Règle le siège pour que les poignées soient à hauteur de poitrine. Omoplates collées au dossier.","Pronation"],["Développé incliné (machine)","Pectoraux","Excellent en 2e exercice : tu pousses lourd sans avoir à gérer l'équilibre.","Pronation"],
+  ["Pec deck / Butterfly","Pectoraux","Coudes légèrement fléchis et fixes. Pense à rapprocher les coudes, pas les mains.","Neutre"],["Écarté haltères incliné","Pectoraux","Mouvement d'étirement, pas de force. Léger, lent, grande amplitude, coudes jamais tendus.","Neutre"],
+  ["Écarté poulie haute (crossover)","Pectoraux","Croise légèrement les mains en fin de mouvement pour aller chercher la contraction complète.","Neutre"],["Écarté poulie basse","Pectoraux","Monte en diagonale vers le haut : cible le haut des pecs, complémentaire du crossover haut.","Neutre"],
+  ["Pull-over haltère","Pectoraux","Bassin bas, ouvre la cage thoracique. Étire sans jamais forcer sur l'épaule.","Neutre"],["Dips (pectoraux)","Pectoraux","Buste penché en avant et coudes ouverts. Buste droit, ce sont les triceps qui prennent.","Neutre"],["Pompes","Pectoraux","Corps gainé d'une seule pièce, mains sous les épaules, coudes à 45°. Bassin ni haut ni affaissé.","Pronation"],
   // Dos
-  ["Tractions","Dos"],["Traction assistée (machine)","Dos"],
-  ["Tirage vertical poulie","Dos"],["Tirage vertical prise serrée","Dos"],
-  ["Tirage horizontal poulie","Dos"],["Rowing barre","Dos"],["Rowing haltère (un bras)","Dos"],
-  ["Rowing T-bar","Dos"],["Rowing machine (Hammer)","Dos"],["Tirage bras tendus poulie","Dos"],
-  ["Soulevé de terre","Dos"],["Haussements d'épaules (shrugs)","Dos"],["Hyperextensions (lombaires)","Dos"],
+  ["Tractions","Dos","Baisse les épaules avant de tirer. Menton au-dessus de la barre sans coup de reins.","Pronation"],["Traction assistée (machine)","Dos","Retire 5 kg d'assistance dès que tu passes 10 répétitions propres.","Pronation"],
+  ["Tirage vertical poulie","Dos","Vers le haut de la poitrine, buste très légèrement incliné. Jamais derrière la nuque.","Pronation large"],["Tirage vertical prise serrée","Dos","Prise serrée neutre : plus de dorsal bas, moins de contrainte sur l'épaule.","Neutre serrée"],
+  ["Tirage horizontal poulie","Dos","Buste fixe, ne rame pas avec le dos. Range les omoplates et marque un temps d'arrêt.","Neutre"],["Rowing barre","Dos","Dos plat à 45°, barre vers le nombril. Si tu te redresses pour tirer, c'est trop lourd.","Pronation"],["Rowing haltère (un bras)","Dos","Coude vers la hanche et non vers l'épaule. Commence toujours par le côté faible.","Neutre"],
+  ["Rowing T-bar","Dos","Prends la version poitrine appuyée si elle existe : les lombaires ne subissent plus rien.","Neutre"],["Rowing machine (Hammer)","Dos","Tire avec les coudes, pas avec les mains. Laisse les omoplates s'écarter en position basse.","Neutre"],["Tirage bras tendus poulie","Dos","Bras quasi tendus et coudes verrouillés : c'est le dorsal qui travaille, les biceps ne participent pas.","Pronation"],
+  ["Soulevé de terre","Dos","Barre collée aux tibias, dos plat, pousse le sol avec les jambes. Technique avant charge, sans exception.","Mixte"],["Haussements d'épaules (shrugs)","Dos","Monte droit vers les oreilles avec une pause en haut. Les rotations d'épaules n'apportent rien.","Pronation"],["Hyperextensions (lombaires)","Dos","Monte jusqu'à l'alignement du corps, pas au-delà. Mouvement lent, aucun à-coup.","Sans prise"],
   // Épaules
-  ["Développé militaire (barre)","Épaules"],["Développé épaules haltères","Épaules"],["Développé épaules (machine)","Épaules"],
-  ["Développé Arnold","Épaules"],["Élévations latérales haltères","Épaules"],["Élévations latérales poulie","Épaules"],
-  ["Élévations latérales (machine)","Épaules"],["Élévations frontales","Épaules"],
-  ["Oiseau (deltoïde postérieur)","Épaules"],["Reverse pec deck","Épaules"],["Face pull poulie","Épaules"],["Rowing menton","Épaules"],
+  ["Développé militaire (barre)","Épaules","Gaine les abdos pour ne pas cambrer. Trajectoire devant le visage, puis passe la tête sous la barre.","Pronation"],["Développé épaules haltères","Épaules","Descends jusqu'aux oreilles. Coudes légèrement en avant plutôt que dans l'axe du corps.","Pronation"],["Développé épaules (machine)","Épaules","Règle le siège pour que les poignées arrivent à hauteur d'épaules, pas plus haut.","Pronation"],
+  ["Développé Arnold","Épaules","La rotation des poignets se fait pendant la montée, jamais avant. Reste léger.","Supination → pronation"],["Élévations latérales haltères","Épaules","Stop à l'horizontale, coudes légèrement fléchis, descente lente sur 3 secondes.","Neutre"],["Élévations latérales poulie","Épaules","La poulie maintient la tension en position basse, là où les haltères n'en ont plus aucune.","Neutre"],
+  ["Élévations latérales (machine)","Épaules","Pousse avec les coudes contre les coussins, pas avec les mains.","Neutre"],["Élévations frontales","Épaules","Souvent superflu si tu fais déjà du développé. Si tu en fais, reste très léger.","Pronation"],
+  ["Oiseau (deltoïde postérieur)","Épaules","Buste penché, pouces vers le sol. Pense arrière de l'épaule, surtout pas trapèzes.","Neutre"],["Reverse pec deck","Épaules","Bras presque tendus, serre les omoplates en fin de mouvement. Charge modérée.","Neutre"],["Face pull poulie","Épaules","Corde vers le front, coudes hauts. Exercice santé d'épaule : léger et fréquent plutôt que lourd.","Neutre"],["Rowing menton","Épaules","Ne monte pas les coudes au-dessus des pectoraux, au-delà tu pinces l'articulation.","Pronation"],
   // Biceps
-  ["Curl barre EZ","Biceps"],["Curl haltères","Biceps"],["Curl marteau","Biceps"],["Curl incliné haltères","Biceps"],
-  ["Curl pupitre (preacher)","Biceps"],["Curl poulie","Biceps"],["Curl concentration","Biceps"],["Curl machine","Biceps"],
+  ["Curl barre EZ","Biceps","Coudes collés au corps et parfaitement immobiles. Aucun balancier du buste.","Supination"],["Curl haltères","Biceps","Tourne le poignet vers l'extérieur en montant pour finir la contraction du biceps.","Supination"],["Curl marteau","Biceps","Prise neutre : cible le brachial, le muscle qui pousse le biceps vers le haut et épaissit le bras.","Neutre"],["Curl incliné haltères","Biceps","Bras en arrière du buste : le long chef travaille étiré. C'est tout l'intérêt de l'exercice.","Supination"],
+  ["Curl pupitre (preacher)","Biceps","Ne tends pas complètement le bras en bas sous charge lourde, le coude n'aime pas.","Supination"],["Curl poulie","Biceps","Tension constante du début à la fin. Parfait en dernier exercice de bras.","Supination"],["Curl concentration","Biceps","Coude calé contre la cuisse. Cherche le pic de contraction, pas la charge.","Supination"],["Curl machine","Biceps","Idéal pour aller à l'échec en sécurité en fin de séance.","Supination"],
   // Triceps
-  ["Extension poulie corde","Triceps"],["Extension poulie barre","Triceps"],["Extension poulie prise inversée","Triceps"],
-  ["Barre au front (skull crusher)","Triceps"],["Extension nuque haltère","Triceps"],["Dips (triceps)","Triceps"],
-  ["Kickback haltère","Triceps"],["Triceps machine","Triceps"],["Pompes diamant","Triceps"],
+  ["Extension poulie corde","Triceps","Écarte la corde en fin de mouvement et marque un temps. Coudes fixes le long du corps.","Neutre"],["Extension poulie barre","Triceps","Prise en pronation, coudes verrouillés. Ne laisse pas les épaules avancer.","Pronation"],["Extension poulie prise inversée","Triceps","Prise en supination : cible le chef médial, presque toujours négligé.","Supination"],
+  ["Barre au front (skull crusher)","Triceps","Descends derrière le front plutôt que dessus : la tension ne retombe jamais.","Pronation"],["Extension nuque haltère","Triceps","Bras au-dessus de la tête, donc long chef en étirement. Coudes serrés vers l'avant.","Neutre"],["Dips (triceps)","Triceps","Buste droit et coudes serrés. Descends jusqu'à l'angle droit, pas plus bas.","Neutre"],
+  ["Kickback haltère","Triceps","Charge légère obligatoire. Verrouille le coude tendu une seconde en haut.","Neutre"],["Triceps machine","Triceps","Dos bien plaqué au dossier pour isoler correctement le bras.","Neutre"],["Pompes diamant","Triceps","Mains en losange sous la poitrine, coudes rasant le corps.","Pronation"],
   // Avant-bras
-  ["Curl poignet","Avant-bras"],["Extension poignet","Avant-bras"],["Farmer's walk","Avant-bras"],
+  ["Curl poignet","Avant-bras","Amplitude complète : laisse la barre rouler jusqu'aux doigts en bas, puis referme.","Supination"],["Extension poignet","Avant-bras","Très léger. C'est l'équilibre du coude qui se joue ici, la prévention de l'épicondylite.","Pronation"],["Farmer's walk","Avant-bras","Gainage debout complet : épaules basses, buste droit, aucun balancement.","Neutre"],
   // Jambes
-  ["Squat (barre)","Jambes"],["Squat guidé (Smith)","Jambes"],["Presse à cuisses","Jambes"],["Hack squat","Jambes"],
-  ["Leg extension (quadriceps)","Jambes"],["Leg curl assis (ischios)","Jambes"],["Leg curl allongé (ischios)","Jambes"],
-  ["Fentes haltères","Jambes"],["Fentes bulgares","Jambes"],["Soulevé de terre roumain","Jambes"],
-  ["Adducteurs (machine)","Jambes"],["Abducteurs (machine)","Jambes"],["Goblet squat","Jambes"],
+  ["Squat (barre)","Jambes","Genoux dans l'axe des pieds, descente contrôlée. Profondeur selon ce que ton genou accepte, sans rebond en bas.","Pronation"],["Squat guidé (Smith)","Jambes","Pieds légèrement avancés. La machine impose la trajectoire, sois donc strict sur la profondeur.","Pronation"],["Presse à cuisses","Jambes","Ne décolle jamais le bas du dos du dossier et ne verrouille pas les genoux en haut.","Sans prise"],["Hack squat","Jambes","Dos plaqué, pieds à mi-plateau. Amplitude confortable, jamais douloureuse.","Sans prise"],
+  ["Leg extension (quadriceps)","Jambes","Contrôlé, sans à-coup, sans hyperextension violente. À placer après le travail des ischios.","Sans prise"],["Leg curl assis (ischios)","Jambes","Genou fléchi : travail différent du soulevé roumain. Contrôle surtout la descente.","Sans prise"],["Leg curl allongé (ischios)","Jambes","Bassin plaqué au banc. Aucun coup de reins pour faire monter la charge.","Sans prise"],
+  ["Fentes haltères","Jambes","Genou arrière vers le sol, buste droit. Pose contrôlée, aucun rebond.","Neutre"],["Fentes bulgares","Jambes","Pied arrière surélevé, poids sur la jambe avant. Redoutable, commence au poids du corps.","Neutre"],["Soulevé de terre roumain","Jambes","Fessiers en arrière, jambes quasi tendues, dos plat. Tu dois sentir les ischios tirer, pas le bas du dos.","Pronation"],
+  ["Adducteurs (machine)","Jambes","Amplitude progressive, ne force jamais l'écartement à froid.","Sans prise"],["Abducteurs (machine)","Jambes","Buste légèrement penché en avant pour mieux cibler le moyen fessier.","Sans prise"],["Goblet squat","Jambes","Haltère contre la poitrine : le buste reste droit tout seul. Le meilleur exercice pour apprendre la descente.","Neutre"],
   // Fessiers
-  ["Hip thrust","Fessiers"],["Kickback fessier poulie","Fessiers"],["Extension de hanche (machine)","Fessiers"],
-  ["Pont fessier","Fessiers"],["Abduction debout poulie","Fessiers"],
+  ["Hip thrust","Fessiers","Menton rentré, pousse dans les talons, serre une seconde en haut. Jamais de cambrure lombaire.","Sans prise"],["Kickback fessier poulie","Fessiers","Jambe tendue, mouvement venant de la hanche. Ne cambre pas pour aller plus loin.","Sans prise"],["Extension de hanche (machine)","Fessiers","Verrouille le buste, ne compense pas avec le bas du dos.","Sans prise"],
+  ["Pont fessier","Fessiers","Version au sol du hip thrust, parfaite en échauffement avant les jambes.","Sans prise"],["Abduction debout poulie","Fessiers","Buste fixe, jambe tendue sur le côté, sans se pencher pour gagner de l'amplitude.","Sans prise"],
   // Mollets
-  ["Mollets debout (machine)","Mollets"],["Mollets assis (machine)","Mollets"],["Mollets à la presse","Mollets"],
+  ["Mollets debout (machine)","Mollets","Jambe tendue donc gastrocnémiens. Amplitude complète avec une pause d'une seconde en haut.","Sans prise"],["Mollets assis (machine)","Mollets","Genou fléchi donc soléaire, le muscle d'endurance. Séries longues, 15 à 20 répétitions.","Sans prise"],["Mollets à la presse","Mollets","Avant-pieds sur le bord du plateau, descends le talon au maximum.","Sans prise"],
   // Abdos
-  ["Crunch au sol","Abdos"],["Crunch poulie","Abdos"],["Crunch machine","Abdos"],
-  ["Relevé de jambes suspendu","Abdos"],["Relevé de genoux (chaise romaine)","Abdos"],
-  ["Gainage (planche)","Abdos"],["Planche latérale","Abdos"],["Russian twist","Abdos"],["Roulette abdominale","Abdos"],["Mountain climbers","Abdos"],
+  ["Crunch au sol","Abdos","Décolle seulement les omoplates, expire en montant. Ne tire jamais sur la nuque.","Sans prise"],["Crunch poulie","Abdos","À genoux, enroule le buste vers le bassin. C'est l'exercice d'abdos où la charge progresse.","Neutre"],["Crunch machine","Abdos","Contrôle surtout la remontée, ne laisse pas la charge te tirer en arrière.","Neutre"],
+  ["Relevé de jambes suspendu","Abdos","Enroule le bassin vers le haut, pas seulement les jambes. Aucun élan.","Pronation"],["Relevé de genoux (chaise romaine)","Abdos","Dos plaqué au dossier, remonte les genoux vers la poitrine lentement.","Sans prise"],
+  ["Gainage (planche)","Abdos","Fessiers serrés, pas de creux lombaire. La qualité de position prime sur la durée.","Sans prise"],["Planche latérale","Abdos","Corps parfaitement aligné, hanche haute. Respire normalement, ne bloque pas.","Sans prise"],["Russian twist","Abdos","La rotation vient du tronc et pas des bras. Reste léger, contrôle l'amplitude.","Neutre"],["Roulette abdominale","Abdos","Exercice anti-cambrure : si le bas du dos creuse, c'est que tu es allé trop loin.","Neutre"],["Mountain climbers","Abdos","Bassin stable, aucun rebond. C'est du gainage dynamique, pas une course.","Pronation"],
   // Cardio
-  ["Tapis de course","Cardio"],["Vélo","Cardio"],["Vélo elliptique","Cardio"],["Rameur","Cardio"],
-  ["Escalier (Climb)","Cardio"],["Air bike / Assault bike","Cardio"],["Corde à sauter","Cardio"],
+  ["Tapis de course","Cardio","Incline à 8-12 % et marche vite plutôt que courir : même dépense, zéro impact sur le genou.","Sans prise"],["Vélo","Cardio","Selle réglée pour que la jambe soit presque tendue en bas. L'option la plus douce pour les articulations.","Neutre"],["Vélo elliptique","Cardio","Buste droit, pousse aussi avec les jambes et pas seulement avec les bras.","Neutre"],["Rameur","Cardio","Ordre strict : jambes, buste, bras. Puis l'inverse au retour. 60 % du travail vient des jambes.","Pronation"],
+  ["Escalier (Climb)","Cardio","Ne t'appuie pas sur les barres, ça divise l'effort par deux.","Sans prise"],["Air bike / Assault bike","Cardio","Format intervalles : 20 secondes fort, 40 secondes calme. Inutile d'y rester 30 minutes.","Neutre"],["Corde à sauter","Cardio","Impact répété au sol : à limiter si le genou est sensible.","Neutre"],
   // Fonctionnel
-  ["Kettlebell swing","Fonctionnel"],["Thruster","Fonctionnel"],["Épaulé (clean)","Fonctionnel"],["Arraché (snatch)","Fonctionnel"],
-  ["Battle rope","Fonctionnel"],["Box jump","Fonctionnel"],["TRX rowing","Fonctionnel"],["Burpees","Fonctionnel"],["Wall ball","Fonctionnel"]
+  ["Kettlebell swing","Fonctionnel","C'est une poussée de hanche, pas un mouvement d'épaules. La kettlebell monte toute seule.","Pronation"],["Thruster","Fonctionnel","Enchaîne squat et poussée sans temps mort. Très exigeant sur le plan cardio.","Pronation"],["Épaulé (clean)","Fonctionnel","Technique avant charge. Fais-toi corriger avant de monter les poids.","Pronation"],["Arraché (snatch)","Fonctionnel","Le mouvement le plus technique de la salle. Barre à vide pendant plusieurs semaines.","Pronation large"],
+  ["Battle rope","Fonctionnel","Reste en position basse, tronc gainé. 20 à 30 secondes par série suffisent.","Neutre"],["Box jump","Fonctionnel","Réception à fort impact : à éviter si le genou est fragile, privilégie le step-up.","Sans prise"],["TRX rowing","Fonctionnel","Plus tu avances les pieds, plus c'est dur. Corps aligné d'une seule pièce.","Neutre"],["Burpees","Fonctionnel","Pose les mains avant de lancer les pieds en arrière, sans effondrer le bassin.","Pronation"],["Wall ball","Fonctionnel","Squat complet puis lancer dans le même élan. Reçois le ballon en amortissant.","Neutre"]
 ];
+const EXTRA_TIPS = {
+ "Tirage vertical prise neutre": "Prise neutre : la plus confortable pour l'épaule. Tire vers le haut des pectoraux.",
+ "Tirage vertical prise large": "Prise large pour la largeur du dos. Coudes vers le bas, pas vers l'arrière.",
+ "Presse à cuisses unilatérale": "Une jambe à la fois : la faible rattrape la forte. Genou dans l'axe du pied.",
+ "Good morning": "Charge très légère, dos plat, fessiers en arrière. Mouvement techniquement exigeant.",
+ "Planche sur les genoux": "Même gainage, appui sur les genoux. Garde la ligne épaules-hanches-genoux.",
+ "Planche latérale genou au sol": "Genou du bas au sol, hanche bien haute. Version accessible de la planche latérale."
+};
+const EXTRA_PRISES = {
+ "Tirage vertical prise neutre": "Neutre",
+ "Tirage vertical prise large": "Pronation large",
+ "Presse à cuisses unilatérale": "Sans prise",
+ "Good morning": "Pronation",
+ "Planche sur les genoux": "Sans prise",
+ "Planche latérale genou au sol": "Sans prise"
+};
+const PRISES = ["Supination","Pronation","Neutre","Pronation large","Neutre serrée","Mixte","Supination → pronation","Sans prise"];
 const LS_KEY = "carnet_muscu_v1";
 const DB_PATH = "state/workout";
 
@@ -370,7 +395,7 @@ function saveLocal(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); 
 
 function seedIfNeeded(){
   if(!state.settings.seeded && state.exercises.length===0){
-    state.exercises = SEED.map(([name,grp])=>({id:uid(), name, group:grp, tips:"", createdAt:Date.now()}));
+    state.exercises = SEED.map(([name,grp,tip,pr])=>({id:uid(), name, group:grp, tips:tip||"", prise:pr||"", auto:true, createdAt:Date.now()}));
     state.settings.seeded = true;
   }
 }
@@ -507,6 +532,7 @@ function sessionCard(e,ei){
         <div class="exo-name">${e.ordre?"① ":""}${esc(exo.name)} ${isPR?'<span title="Record">🏆</span>':""}</div>
         <div class="badges">
           <span class="bdg">${exo.group}</span>
+          ${exo.prise?`<span class="bdg grip">✋ ${esc(exo.prise)}</span>`:""}
           ${e.target?`<span class="bdg tgt">${e.target.s}×${esc(e.target.r)} · ${e.target.rest}s</span>`:""}
           ${e.ordre?`<span class="bdg warn">⚠️ Toujours en 1er</span>`:""}
           ${e.ss?`<span class="bdg">⚡ Superset</span>`:""}
@@ -519,8 +545,7 @@ function sessionCard(e,ei){
         <button class="exo-menu" onclick="removeEntry(${ei})" title="Retirer">✕</button>
       </div>
     </div>
-    ${e.ptip?`<div class="tip-box"><span class="k">💡</span><span>${esc(e.ptip)}</span></div>`:""}
-    ${exo.tips?`<div class="tip-box"><span class="k">📌</span><span>${esc(exo.tips)}</span></div>`:""}
+    ${(e.ptip||exo.tips)?`<div class="tip-box"><span class="k">💡</span><span>${esc(e.ptip||exo.tips)}</span></div>`:""}
     <div class="lastinfo">
       <span>${lastTxt}</span>
       ${last?`<button class="repeat" onclick="repeatLast(${ei})">↻ Reprendre</button>`:""}
@@ -804,6 +829,16 @@ const PROGRAMME = [
 const CYCLE=["A","B","C","D"];
 const MOBILITE="Ouverture de poitrine (bras contre un montant) + étirement du psoas en fente. 2 min, contre la posture assise du volant.";
 
+function tipFor(name){
+  const s=SEED.find(([n])=>norm(n)===norm(name)); if(s&&s[2]) return s[2];
+  const k=Object.keys(EXTRA_TIPS).find(n=>norm(n)===norm(name)); if(k) return EXTRA_TIPS[k];
+  return "";
+}
+function priseFor(name){
+  const s=SEED.find(([n])=>norm(n)===norm(name)); if(s&&s[3]) return s[3];
+  const k=Object.keys(EXTRA_PRISES).find(n=>norm(n)===norm(name)); if(k) return EXTRA_PRISES[k];
+  return "";
+}
 function groupFor(name){
   const s=SEED.find(([n])=>norm(n)===norm(name)); if(s) return s[1];
   for(const p of PROGRAMME){ const x=p.exos.find(e=>norm(e.n)===norm(name)); if(x) return x.g; }
@@ -811,7 +846,7 @@ function groupFor(name){
 }
 function ensureExercise(name, group){
   let e = state.exercises.find(x=>norm(x.name)===norm(name));
-  if(!e){ e={id:uid(), name, group:group||groupFor(name), tips:"", createdAt:Date.now()}; state.exercises.push(e); }
+  if(!e){ e={id:uid(), name, group:group||groupFor(name), tips:tipFor(name), prise:priseFor(name), auto:true, createdAt:Date.now()}; state.exercises.push(e); }
   return e;
 }
 function nextSeance(){
@@ -902,7 +937,10 @@ function loadFitnessPark(){
   PROGRAMME.forEach(t=>t.exos.forEach(x=>{ progNames.add(norm(x.n)); (x.alt||[]).forEach(a=>progNames.add(norm(a))); }));
   const keep=state.exercises.filter(e=> usedIds.has(e.id) || (e.tips&&e.tips.trim()) || progNames.has(norm(e.name)));
   const keepNames=new Set(keep.map(e=>norm(e.name)));
-  const added=SEED.filter(([n])=>!keepNames.has(norm(n))).map(([name,group])=>({id:uid(),name,group,tips:"",createdAt:Date.now()}));
+  const added=SEED.filter(([n])=>!keepNames.has(norm(n))).map(([name,group,tip,pr])=>({id:uid(),name,group,tips:tip||"",prise:pr||"",auto:true,createdAt:Date.now()}));
+  // les exercices conservés récupèrent aussi leur conseil s'ils n'en ont pas encore
+  keep.forEach(e=>{ if(!e.tips||!e.tips.trim()||e.auto){ const t=tipFor(e.name); if(t){ e.tips=t; e.auto=true; } }
+                    if(!e.prise){ e.prise=priseFor(e.name); } });
   state.exercises=keep.concat(added);
   state.settings.seeded=true;
   save(); renderLib(); window.scrollTo(0,0);
@@ -913,16 +951,17 @@ function renderLib(){
   const q=libQuery.trim().toLowerCase();
   const list=state.exercises.filter(e=>!q || e.name.toLowerCase().includes(q) || e.group.toLowerCase().includes(q));
   const row=e=>`<div class="lib-row">
-        <div class="nm">${esc(e.name)} ${e.tips?'<span class="tipdot" title="Contient un tip">●</span>':""}</div>
-        <button class="ic" onclick="openEditExercise('${e.id}')" title="Éditer / tip">📝</button>
-        <button class="addhere" onclick="addExerciseToToday('${e.id}')">＋ Séance</button>
+        <div class="nm">${esc(e.name)}${e.prise?`<span class="lib-grip">✋ ${esc(e.prise)}</span>`:""}${e.tips?`<span class="lib-tip">💡 ${esc(e.tips)}</span>`:""}</div>
+        <button class="ic" onclick="openEditExercise('${e.id}')" title="Modifier le conseil">📝</button>
+        <button class="addhere" onclick="addExerciseToToday('${e.id}')">＋</button>
       </div>`;
   let html=`<h2 class="vt">Exercices — ${state.exercises.length} au total, rangés par partie du corps</h2>
     <input class="searchbar" placeholder="Rechercher un exercice…" value="${esc(libQuery)}" oninput="libQuery=this.value;renderLib();document.querySelector('.searchbar')&&(document.querySelector('.searchbar').focus())">
     <div class="grid2" style="margin-bottom:8px">
       <button class="btn" onclick="openEditExercise(null)">＋ Nouvel exercice</button>
       <button class="btn sec" onclick="loadFitnessPark()">⚡ Bibliothèque Fitness Park</button>
-    </div>`;
+    </div>
+    <div class="legende"><b>Prises</b> — <b>Supination</b> : paumes vers toi (biceps). <b>Pronation</b> : paumes vers l'avant (avant-bras, dos). <b>Neutre</b> : paumes face à face (brachial, épaule ménagée). <b>Mixte</b> : une main dans chaque sens.</div>`;
   const known=GROUPS.filter(g=>list.some(e=>e.group===g));
   const extra=[...new Set(list.map(e=>e.group))].filter(g=>!GROUPS.includes(g)); // groupes hérités / inconnus
   const groups=[...known, ...extra];
@@ -1021,8 +1060,16 @@ function ask(titre,texte,okLabel,cb,danger){
 }
 function closeAsk(){ document.getElementById("cOverlay").classList.remove("show"); askCb=null; }
 function confirmAsk(){ const c=askCb; closeAsk(); if(c)c(); }
-function openSheet(html){ document.getElementById("sheet").innerHTML=html; document.getElementById("overlay").classList.add("show"); }
-function closeSheet(){ document.getElementById("overlay").classList.remove("show"); }
+let sheetBack=null;
+function openSheet(html, back){
+  sheetBack = back || null;
+  document.getElementById("sheet").innerHTML =
+    `<div class="sheet-bar"><button class="sheet-nav" onclick="sheetNav()">${back?"← Retour":"✕ Fermer"}</button></div>` + html;
+  document.getElementById("overlay").classList.add("show");
+  document.getElementById("sheet").scrollTop=0;
+}
+function closeSheet(){ document.getElementById("overlay").classList.remove("show"); sheetBack=null; }
+function sheetNav(){ const b=sheetBack; closeSheet(); if(b)b(); }
 
 function openAddExercise(){
   const recent=[...new Set(state.sessions.slice(-8).reverse().flatMap(s=>s.entries.map(e=>e.exerciseId)))].filter(getExo).slice(0,6);
@@ -1031,30 +1078,36 @@ function openAddExercise(){
     <input class="searchbar" id="pickSearch" placeholder="Rechercher…" oninput="filterPick(this.value)">
     ${recent.length?`<div class="grp-title">Récents</div>${recent.map(id=>pickRow(getExo(id))).join("")}`:""}
     <div id="pickList">${byGroup.map(g=>`<div class="grp-title">${g}</div>`+state.exercises.filter(e=>e.group===g).sort((a,b)=>a.name.localeCompare(b.name)).map(pickRow).join("")).join("")}</div>
-    <button class="btn sec" style="margin-top:12px" onclick="openEditExercise(null)">＋ Créer un nouvel exercice</button>`);
+    <button class="btn sec" style="margin-top:12px" onclick="openEditExercise(null,'pick')">＋ Créer un nouvel exercice</button>`);
   setTimeout(()=>document.getElementById("pickSearch")?.focus(),150);
 }
 const pickRow=e=>`<div class="lib-row pickable" data-nm="${esc(e.name.toLowerCase())} ${e.group.toLowerCase()}"><div class="nm">${esc(e.name)}</div><button class="addhere" onclick="addExerciseToToday('${e.id}')">Ajouter</button></div>`;
 function filterPick(q){ q=q.toLowerCase().trim(); document.querySelectorAll("#pickList .pickable").forEach(r=>{ r.style.display=(!q||r.dataset.nm.includes(q))?"flex":"none"; });
   document.querySelectorAll("#pickList .grp-title").forEach(t=>t.style.display=q?"none":"block"); }
 
-function openEditExercise(id){
+function openEditExercise(id, from){
   const e=id?getExo(id):null;
   openSheet(`<h3>${e?"Modifier l'exercice":"Nouvel exercice"}</h3>
     <div class="field"><label>Nom</label><input id="exName" value="${e?esc(e.name):""}" placeholder="Ex. Développé couché"></div>
     <div class="field"><label>Groupe musculaire</label><select id="exGroup">${GROUPS.map(g=>`<option ${e&&e.group===g?"selected":""}>${g}</option>`).join("")}</select></div>
-    <div class="field"><label>Tip / conseil (technique, réglage, respiration…)</label><textarea id="exTips" placeholder="Ex. Coudes à 45°, descente contrôlée 2s, ne pas rebondir">${e?esc(e.tips||""):""}</textarea></div>
+    <div class="field"><label>Prise</label><select id="exPrise">
+      <option value="">— aucune —</option>
+      ${PRISES.map(x=>`<option ${e&&e.prise===x?"selected":""}>${x}</option>`).join("")}
+    </select></div>
+    <div class="field"><label>Conseil affiché pendant la séance</label><textarea id="exTips" placeholder="Ex. Coudes à 45°, descente contrôlée 2s, ne pas rebondir">${e?esc(e.tips||""):""}</textarea></div>
     <button class="btn" onclick="saveExercise('${id||""}')">${e?"Enregistrer":"Créer"}</button>
-    ${e?`<button class="btn danger" style="margin-top:10px" onclick="deleteExercise('${id}')">Supprimer l'exercice</button>`:""}`);
+    ${e?`<button class="btn danger" style="margin-top:10px" onclick="deleteExercise('${id}')">Supprimer l'exercice</button>`:""}`,
+    from==="pick"?openAddExercise:null);
   setTimeout(()=>document.getElementById("exName")?.focus(),150);
 }
 function saveExercise(id){
   const name=document.getElementById("exName").value.trim();
   const group=document.getElementById("exGroup").value;
   const tips=document.getElementById("exTips").value.trim();
+  const prise=document.getElementById("exPrise").value;
   if(!name){ toast("Donne un nom"); return; }
-  if(id){ const e=getExo(id); e.name=name; e.group=group; e.tips=tips; }
-  else { state.exercises.push({id:uid(),name,group,tips,createdAt:Date.now()}); }
+  if(id){ const e=getExo(id); e.name=name; e.group=group; e.prise=prise; if(e.tips!==tips) e.auto=false; e.tips=tips; }
+  else { state.exercises.push({id:uid(),name,group,tips,prise,createdAt:Date.now()}); }
   save(); closeSheet(); renderView(current); toast("Enregistré");
 }
 function deleteExercise(id){
