@@ -55,9 +55,9 @@ input:focus-visible,button:focus-visible,select:focus-visible,textarea:focus-vis
 
 /* Header */
 header{
-  position:sticky; top:0; z-index:20; background:color-mix(in srgb, var(--bg) 86%, transparent);
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:20; background:color-mix(in srgb, var(--bg) 86%, transparent);
   backdrop-filter:saturate(160%) blur(10px);
-  border-bottom:1px solid var(--line); padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;
+  border-bottom:1px solid var(--line); padding:12px 16px;
 }
 .h-row{display:flex; align-items:baseline; justify-content:space-between; gap:10px; max-width:640px; margin:0 auto}
 .h-title{font-family:var(--num); font-weight:700; font-size:20px; letter-spacing:-.01em}
@@ -247,6 +247,13 @@ nav button.on{color:var(--accent)}
 .toast.show{opacity:1}
 .toast.pr{background:var(--pr); color:#1a1400}
 </style>
+<style>
+/* Appli installée : la page passe sous la barre d'état, l'en-tête gère lui-même l'encoche */
+header{top:0; padding-top:calc(env(safe-area-inset-top,0px) + 12px)}
+/* Sur iPhone, la barre du bas peut flotter au-dessus du bord de l'écran :
+   on prolonge son fond pour que rien ne défile visiblement dessous */
+nav::after{content:""; position:absolute; left:0; right:0; top:100%; height:200px; background:var(--bg)}
+</style>
 </head>
 <body>
 <header>
@@ -350,21 +357,17 @@ const SEED = [
   ["Kettlebell swing","Fonctionnel","C'est une poussée de hanche, pas un mouvement d'épaules. La kettlebell monte toute seule.","Pronation"],["Thruster","Fonctionnel","Enchaîne squat et poussée sans temps mort. Très exigeant sur le plan cardio.","Pronation"],["Épaulé (clean)","Fonctionnel","Technique avant charge. Fais-toi corriger avant de monter les poids.","Pronation"],["Arraché (snatch)","Fonctionnel","Le mouvement le plus technique de la salle. Barre à vide pendant plusieurs semaines.","Pronation large"],
   ["Battle rope","Fonctionnel","Reste en position basse, tronc gainé. 20 à 30 secondes par série suffisent.","Neutre"],["Box jump","Fonctionnel","Réception à fort impact : à éviter si le genou est fragile, privilégie le step-up.","Sans prise"],["TRX rowing","Fonctionnel","Plus tu avances les pieds, plus c'est dur. Corps aligné d'une seule pièce.","Neutre"],["Burpees","Fonctionnel","Pose les mains avant de lancer les pieds en arrière, sans effondrer le bassin.","Pronation"],["Wall ball","Fonctionnel","Squat complet puis lancer dans le même élan. Reçois le ballon en amortissant.","Neutre"]
 ];
-const EXTRA_TIPS = {
- "Tirage vertical prise neutre": "Prise neutre : la plus confortable pour l'épaule. Tire vers le haut des pectoraux.",
- "Tirage vertical prise large": "Prise large pour la largeur du dos. Coudes vers le bas, pas vers l'arrière.",
- "Presse à cuisses unilatérale": "Une jambe à la fois : la faible rattrape la forte. Genou dans l'axe du pied.",
- "Good morning": "Charge très légère, dos plat, fessiers en arrière. Mouvement techniquement exigeant.",
- "Planche sur les genoux": "Même gainage, appui sur les genoux. Garde la ligne épaules-hanches-genoux.",
- "Planche latérale genou au sol": "Genou du bas au sol, hanche bien haute. Version accessible de la planche latérale."
-};
-const EXTRA_PRISES = {
- "Tirage vertical prise neutre": "Neutre",
- "Tirage vertical prise large": "Pronation large",
- "Presse à cuisses unilatérale": "Sans prise",
- "Good morning": "Pronation",
- "Planche sur les genoux": "Sans prise",
- "Planche latérale genou au sol": "Sans prise"
+/* Exercices absents de la liste Fitness Park standard : [groupe, conseil, prise] */
+const EXTRA_EXOS = {
+ "Tirage vertical prise neutre": ["Dos","Prise neutre : la plus confortable pour l'épaule. Tire vers le haut des pectoraux.","Neutre"],
+ "Tirage vertical prise large": ["Dos","Prise large pour la largeur du dos. Coudes vers le bas, pas vers l'arrière.","Pronation large"],
+ "Presse à cuisses unilatérale": ["Jambes","Une jambe à la fois : la faible rattrape la forte. Genou dans l'axe du pied.","Sans prise"],
+ "Good morning": ["Jambes","Charge très légère, dos plat, fessiers en arrière. Mouvement techniquement exigeant.","Pronation"],
+ "Planche sur les genoux": ["Abdos","Même gainage, appui sur les genoux. Garde la ligne épaules-hanches-genoux.","Sans prise"],
+ "Planche latérale genou au sol": ["Abdos","Genou du bas au sol, hanche bien haute. Version accessible de la planche latérale.","Sans prise"],
+ "Extension triceps au-dessus de la tête (poulie)": ["Triceps","Dos à la poulie, corde derrière la tête, coudes serrés vers l'avant. Même cible que l'extension nuque : le long chef étiré.","Neutre"],
+ "Curl marteau poulie (corde)": ["Biceps","Corde à la poulie basse, pouces vers le haut, coudes collés. Tension constante sur le brachial.","Neutre"],
+ "Adduction debout poulie": ["Jambes","Sangle à la cheville, ramène la jambe devant l'autre sans pencher le buste.","Sans prise"]
 };
 const PRISES = ["Supination","Pronation","Neutre","Pronation large","Neutre serrée","Mixte","Supination → pronation","Sans prise"];
 const LS_KEY = "carnet_muscu_v1";
@@ -398,6 +401,7 @@ function seedIfNeeded(){
     state.exercises = SEED.map(([name,grp,tip,pr])=>({id:uid(), name, group:grp, tips:tip||"", prise:pr||"", auto:true, createdAt:Date.now()}));
     state.settings.seeded = true;
   }
+  fixGroups();
 }
 
 /* db : source durable liée au compte. localStorage = miroir instantané + secours. */
@@ -498,13 +502,13 @@ function renderSeance(){
   const s=todaySession();
   if(!s || !s.entries.length){
     el.innerHTML = `<div class="empty"><div class="big">🏋️</div>
-      <p>Aucun exercice pour aujourd'hui.<br>Prochaine séance conseillée : <b>${nextSeance()}</b></p>
+      <p>Aucun exercice pour aujourd'hui.<br>Prochaine séance conseillée : <b>${labelSeance(nextSeance())}</b></p>
       <button class="btn" onclick="openTemplates()">📋 Charger une séance</button>
       <button class="btn sec" style="margin-top:10px" onclick="openAddExercise()">＋ Ajouter un exercice</button></div>`;
     return;
   }
   const vol=sessionVolume(s);
-  let html = s.seance?`<div class="warmup"><b>Séance ${s.seance}</b> — échauffement : ${esc(s.echauffement||"")}</div>`:"";
+  let html = s.seance?`<div class="warmup"><b>Séance ${esc(labelSeance(s.seance))}</b> — échauffement : ${esc(s.echauffement||"")}</div>`:"";
   html += `<div class="session-total">
     <div class="tot"><div class="v num">${s.entries.length}</div><div class="l">Exercices</div></div>
     <div class="tot"><div class="v num">${sessionSets(s)}</div><div class="l">Séries</div></div>
@@ -533,7 +537,7 @@ function sessionCard(e,ei){
         <div class="badges">
           <span class="bdg">${exo.group}</span>
           ${exo.prise?`<span class="bdg grip">✋ ${esc(exo.prise)}</span>`:""}
-          ${e.target?`<span class="bdg tgt">${e.target.s}×${esc(e.target.r)} · ${e.target.rest}s</span>`:""}
+          ${e.target?`<span class="bdg tgt">${e.target.s}×${esc(e.target.r)} · ${restLabel(e.target.rest)}</span>`:""}
           ${e.ordre?`<span class="bdg warn">⚠️ Toujours en 1er</span>`:""}
           ${e.ss?`<span class="bdg">⚡ Superset</span>`:""}
           ${e.isAlt?`<span class="bdg alt">Plan B</span>`:""}
@@ -601,8 +605,11 @@ function toggleDone(ei,si){
   save();
   if(st.done){ // record ? démarre le repos
     const hmax=historicalMax(s.entries[ei].exerciseId,true);
-    if(st.weight && st.weight>hmax.maxW && hmax.maxW>0){ toast("🏆 Nouveau record !","pr"); if(navigator.vibrate)navigator.vibrate([40,60,40]); }
-    timerStart((s.entries[ei].target&&s.entries[ei].target.rest)||state.settings.restSec);
+    const pr = st.weight && st.weight>hmax.maxW && hmax.maxW>0;
+    if(pr){ toast("🏆 Nouveau record !","pr"); if(navigator.vibrate)navigator.vibrate([40,60,40]); }
+    const tg=s.entries[ei].target;
+    const rest = tg && typeof tg.rest==="number" ? tg.rest : state.settings.restSec;
+    if(rest>0) timerStart(rest); else if(!pr) toast("⚡ Enchaîne avec l'exercice suivant");
   }
   renderSeance();
 }
@@ -629,7 +636,7 @@ function renderHisto(){
   el.innerHTML = `<h2 class="vt">Historique — ${sess.length} séance${sess.length>1?"s":""}</h2>` + sess.map((s,i)=>`
     <div class="day">
       <div class="day-hd" onclick="toggleDay(${i})">
-        <div><div class="dt">${s.seance?`<span class="seance-tag">${s.seance}</span> `:""}${fmtDate(s.date)}${s.date===todayISO()?" · aujourd'hui":""}</div>
+        <div><div class="dt">${s.seance?`<span class="seance-tag">${esc(labelSeance(s.seance))}</span> `:""}${fmtDate(s.date)}${s.date===todayISO()?" · aujourd'hui":""}</div>
         <div class="mt">${s.entries.length} exo · ${sessionSets(s)} séries · ${Math.round(sessionVolume(s)).toLocaleString("fr-FR")} kg</div></div>
         <div class="chev" id="chev-${i}">▾</div>
       </div>
@@ -718,104 +725,95 @@ function lineChart(points,unit){
   </svg>`;
 }
 
-/* ---------------- Programme Upper/Lower 4 jours ----------------
+/* ---------------- Programme Push / Pull / Legs ----------------
+   Rotation Push → Pull → Legs, quel que soit le nombre de séances par semaine.
    Genou (LCA) : ischios avant quadriceps, chaîne postérieure prioritaire, zéro impact.
    Un exercice = un angle / un chef musculaire. Titulaire = repère à battre ;
    alternative = plan B si machine occupée, loggée à part pour ne pas fausser la courbe. */
 const PROGRAMME = [
-  { id:"A", nom:"Séance A — Haut (horizontale)", icone:"🔺", jour:"Lundi",
-    resume:"Poussée et tirage horizontaux, puis les 3 faisceaux d'épaule et les bras.",
-    echauffement:"5 min cardio léger · rotations d'épaules · 1-2 séries légères de face pull ou élévations (réveil de la coiffe) · 1 série d'approche sur le 1er exo.",
+  { id:"PUSH", nom:"Push — Pecs / Épaules / Triceps", icone:"🔺", jour:"Jour 1",
+    resume:"Trois angles de pec, deux faisceaux d'épaule, deux chefs de triceps. L'arrière d'épaule se travaille en Pull.",
+    echauffement:"5 min cardio léger · rotations d'épaules · 1-2 séries légères d'élévations latérales (réveil de la coiffe) · 1 série d'approche au développé couché.",
     exos:[
-      {n:"Développé couché haltères",g:"Pectoraux",s:4,r:"8-10",rest:120,c:"Pec — poussée horizontale",
+      {n:"Développé couché haltères",g:"Pectoraux",s:4,r:"8-10",rest:120,c:"Pec milieu — poussée horizontale",
        alt:["Développé couché (barre)","Chest press (machine)"],
        tip:"Omoplates serrées et basses, coudes ~45°, étire bien le pec en bas."},
-      {n:"Rowing machine (Hammer)",g:"Dos",s:4,r:"10-12",rest:90,c:"Dos — épaisseur, tirage horizontal",
-       alt:["Tirage horizontal poulie","Rowing haltère (un bras)"],
-       tip:"Tire avec les coudes, « range les omoplates », buste fixe."},
-      {n:"Développé épaules haltères",g:"Épaules",s:3,r:"10-12",rest:90,c:"Deltoïde antérieur",
+      {n:"Développé incliné (machine)",g:"Pectoraux",s:3,r:"10-12",rest:90,c:"Pec haut — faisceau claviculaire",
+       alt:["Développé incliné haltères","Développé incliné (barre)"],
+       tip:"Dossier vers 30°. La machine te laisse pousser fort sans gérer l'équilibre après le couché."},
+      {n:"Écarté poulie haute (crossover)",g:"Pectoraux",s:3,r:"12-15",rest:60,c:"Pec bas + adduction — le seul mouvement sans poussée",
+       alt:["Pec deck / Butterfly","Dips (pectoraux)"],
+       tip:"Poulies en haut, coudes légèrement fléchis. Ramène les mains vers le bas du ventre et croise-les en fin de mouvement."},
+      {n:"Développé épaules haltères",g:"Épaules",s:3,r:"10-12",rest:90,c:"Deltoïde antérieur — poussée verticale",
        alt:["Développé épaules (machine)","Développé militaire (barre)"],
-       tip:"Abdos gainés, pas de cambrure, descends jusqu'aux oreilles."},
-      {n:"Tirage vertical prise neutre",g:"Dos",s:3,r:"10-12",rest:90,c:"Grand dorsal — largeur, tirage vertical",
-       alt:["Traction assistée (machine)","Tirage bras tendus poulie"],
-       tip:"Vers le haut des pecs, épaules basses, aucun balancier."},
-      {n:"Élévations latérales haltères",g:"Épaules",s:3,r:"12-15",rest:60,c:"Deltoïde latéral",
+       tip:"Assis, dos plaqué au dossier, abdos gainés, pas de cambrure. Descends jusqu'aux oreilles."},
+      {n:"Élévations latérales haltères",g:"Épaules",s:4,r:"12-15",rest:60,c:"Deltoïde latéral — la largeur d'épaule",
        alt:["Élévations latérales poulie","Élévations latérales (machine)"],
-       tip:"Coudes légèrement fléchis, stop à l'horizontale, descente lente."},
-      {n:"Face pull poulie",g:"Épaules",s:3,r:"15",rest:60,c:"Deltoïde postérieur + rotateurs",star:true,
+       tip:"Coudes légèrement fléchis, stop à l'horizontale, descente lente. Si les trapèzes montent, c'est trop lourd."},
+      {n:"Extension nuque haltère",g:"Triceps",s:3,r:"10-12",rest:60,c:"Triceps long chef — bras au-dessus de la tête, donc étiré",
+       alt:["Extension triceps au-dessus de la tête (poulie)","Barre au front (skull crusher)"],
+       tip:"Coudes serrés et pointés vers l'avant, descends derrière la tête jusqu'à sentir l'étirement."},
+      {n:"Extension poulie corde",g:"Triceps",s:3,r:"12-15",rest:60,c:"Triceps chefs latéral + médial — bras le long du corps",
+       alt:["Extension poulie barre","Dips (triceps)"],
+       tip:"Coudes collés au corps, écarte la corde en bas et marque un temps."}
+    ]},
+  { id:"PULL", nom:"Pull — Dos / Biceps", icone:"🔻", jour:"Jour 2",
+    resume:"Un tirage vertical, un horizontal, un dorsal isolé, l'arrière d'épaule, puis un chef de biceps par exercice.",
+    echauffement:"5 min rameur ou vélo léger · rotations d'épaules · 1-2 séries légères de face pull · 1 série d'approche au tirage vertical.",
+    exos:[
+      {n:"Tirage vertical poulie",g:"Dos",s:4,r:"10-12",rest:90,c:"Grand dorsal — largeur (tirage vertical, prise large)",
+       alt:["Traction assistée (machine)","Tirage vertical prise serrée"],
+       tip:"Prise large. Descends les épaules avant de tirer, barre vers le haut de la poitrine, jamais derrière la nuque."},
+      {n:"Rowing machine (Hammer)",g:"Dos",s:4,r:"10-12",rest:90,c:"Milieu du dos — épaisseur (tirage horizontal)",
+       alt:["Tirage horizontal poulie","Rowing haltère (un bras)"],
+       tip:"Poitrine contre l'appui : le bas du dos ne travaille pas. Tire avec les coudes, serre les omoplates."},
+      {n:"Tirage bras tendus poulie",g:"Dos",s:3,r:"12-15",rest:60,c:"Grand dorsal bas, isolé — les biceps ne participent pas",
+       alt:["Pull-over haltère"],
+       tip:"Bras quasi tendus et verrouillés, ramène la barre jusqu'aux cuisses en contractant le dos."},
+      {n:"Face pull poulie",g:"Épaules",s:3,r:"15",rest:60,c:"Deltoïde postérieur + rotateurs externes",star:true,
        alt:["Oiseau (deltoïde postérieur)","Reverse pec deck"],
        tip:"Corde au visage, tire vers le front, coudes hauts, reste léger. Ton exo santé d'épaule de conducteur."},
-      {n:"Curl barre EZ",g:"Biceps",s:3,r:"12",rest:60,c:"Biceps — superset",ss:true,
-       alt:["Curl haltères"],tip:"Coudes collés et fixes, amplitude complète."},
-      {n:"Extension poulie corde",g:"Triceps",s:3,r:"12",rest:60,c:"Triceps — superset",ss:true,
-       alt:["Extension nuque haltère"],tip:"Enchaîné juste après le curl, coudes fixes."}
+      {n:"Curl incliné haltères",g:"Biceps",s:3,r:"10-12",rest:60,c:"Biceps long chef — bras en arrière, donc étiré",
+       alt:["Curl haltères","Curl poulie"],
+       tip:"Banc à 45-60°, bras pendants derrière le buste. Aucun élan, descente complète."},
+      {n:"Curl pupitre (preacher)",g:"Biceps",s:3,r:"10-12",rest:60,c:"Biceps court chef — bras devant le corps",
+       alt:["Curl machine","Curl concentration"],
+       tip:"Aisselles calées contre le pupitre. Ne verrouille pas le coude en bas sous charge lourde."},
+      {n:"Curl marteau",g:"Biceps",s:3,r:"10-12",rest:60,c:"Brachial + brachio-radial — l'épaisseur du bras",
+       alt:["Curl marteau poulie (corde)"],
+       tip:"Prise neutre, coudes fixes. Le brachial, sous le biceps, le pousse vers le haut."}
     ]},
-  { id:"B", nom:"Séance B — Bas (quad + postérieure lourde)", icone:"🦵", jour:"Mardi",
-    resume:"Ischios en premier pour le genou, puis fessiers, quadriceps et mollets.",
-    echauffement:"5-8 min vélo · 1-2 séries légères de leg curl AVANT de charger les quadriceps · 1 série d'approche.",
+  { id:"LEGS", nom:"Legs — Jambes / Fessiers", icone:"🦵", jour:"Jour 3",
+    resume:"Ischios en premier pour le genou, puis chaque muscle de la jambe par sa propre fonction. Zéro impact.",
+    echauffement:"5-8 min vélo · 1-2 séries légères de leg curl AVANT de charger les quadriceps · 1 série d'approche à la presse.",
     exos:[
-      {n:"Leg curl allongé (ischios)",g:"Jambes",s:4,r:"10-12",rest:90,c:"Ischios — flexion de genou",ordre:true,
-       alt:["Leg curl assis (ischios)"],tip:"Toujours en 1er. Contrôle la descente, aucun à-coup."},
-      {n:"Hip thrust",g:"Fessiers",s:4,r:"8-12",rest:120,c:"Grand fessier — extension de hanche",
+      {n:"Leg curl allongé (ischios)",g:"Jambes",s:4,r:"10-12",rest:90,c:"Ischios — flexion du genou",ordre:true,
+       alt:["Leg curl assis (ischios)"],
+       tip:"Toujours en 1er : il stabilise le genou avant les quadriceps. Contrôle la descente, aucun à-coup."},
+      {n:"Hip thrust",g:"Fessiers",s:3,r:"8-12",rest:120,c:"Grand fessier — extension de hanche",
        alt:["Extension de hanche (machine)","Pont fessier"],
-       tip:"Menton rentré, pousse dans les talons, serre les fessiers en haut."},
-      {n:"Presse à cuisses",g:"Jambes",s:3,r:"10-12",rest:120,c:"Quadriceps + fessiers",
-       alt:["Hack squat","Goblet squat"],
-       tip:"Amplitude confortable, jamais douloureuse. Genoux dans l'axe des pieds."},
-      {n:"Soulevé de terre roumain",g:"Jambes",s:3,r:"10-12",rest:90,c:"Ischios en étirement — fonction hanche",
-       alt:["Good morning"],tip:"Pousse les fessiers en arrière, dos plat. Technique avant charge."},
-      {n:"Leg extension (quadriceps)",g:"Jambes",s:3,r:"12-15",rest:60,c:"Quadriceps isolé — après les ischios",
-       alt:["Presse à cuisses"],tip:"Contrôlé, sans à-coup, pas d'hyperextension violente."},
+       tip:"Menton rentré, pousse dans les talons, serre 1 seconde en haut. Mouvement qui encaisse lourd : charge sans crainte."},
+      {n:"Presse à cuisses",g:"Jambes",s:3,r:"10-12",rest:120,c:"Quadriceps + fessiers — poussée",
+       alt:["Hack squat","Fentes bulgares"],
+       tip:"Amplitude confortable, jamais douloureuse. Genoux dans l'axe des pieds, bas du dos collé au dossier."},
+      {n:"Soulevé de terre roumain",g:"Jambes",s:3,r:"10-12",rest:90,c:"Ischios en étirement — par la hanche, pas par le genou",
+       alt:["Good morning","Hyperextensions (lombaires)"],
+       tip:"Fessiers en arrière, jambes quasi tendues, dos plat. Tu dois sentir les ischios tirer, pas le bas du dos."},
+      {n:"Leg extension (quadriceps)",g:"Jambes",s:3,r:"12-15",rest:60,c:"Quadriceps isolé — dont le droit fémoral, que la presse sollicite peu",
+       alt:["Presse à cuisses unilatérale"],
+       tip:"Contrôlé, sans à-coup, pas d'hyperextension violente. Toujours après le leg curl."},
+      {n:"Abducteurs (machine)",g:"Jambes",s:3,r:"15",rest:0,c:"Moyen fessier — empêche le genou de rentrer",ss:true,
+       alt:["Abduction debout poulie"],
+       tip:"Buste légèrement penché en avant, pousse avec l'extérieur de la hanche. Enchaîne directement les adducteurs."},
+      {n:"Adducteurs (machine)",g:"Jambes",s:3,r:"15",rest:60,c:"Adducteurs — intérieur de cuisse",ss:true,
+       alt:["Adduction debout poulie"],
+       tip:"Amplitude progressive, ne force jamais l'écartement à froid. Repos seulement après ce duo."},
       {n:"Mollets debout (machine)",g:"Mollets",s:4,r:"12-15",rest:45,c:"Gastrocnémiens — jambe tendue",
-       alt:["Mollets à la presse"],tip:"Amplitude complète, pause 1 seconde en haut."}
+       alt:["Mollets assis (machine)","Mollets à la presse"],
+       tip:"Amplitude complète, pause 1 seconde en haut et en bas. L'alternative assise cible le soléaire."}
     ]},
-  { id:"C", nom:"Séance C — Haut (verticale)", icone:"🔻", jour:"Jeudi",
-    resume:"Mêmes muscles que la A mais par les angles verticaux — aucun doublon avec lundi.",
-    echauffement:"5 min cardio léger · rotations d'épaules · 1-2 séries légères de face pull ou élévations · 1 série d'approche.",
-    exos:[
-      {n:"Développé militaire (barre)",g:"Épaules",s:4,r:"8-10",rest:120,c:"Deltoïde antérieur — poussée verticale",
-       alt:["Développé épaules (machine)","Développé épaules haltères"],
-       tip:"Gaine les abdos, trajectoire devant le visage."},
-      {n:"Tirage vertical prise large",g:"Dos",s:4,r:"10-12",rest:90,c:"Grand dorsal — largeur, prise large",
-       alt:["Traction assistée (machine)"],
-       tip:"Vers le haut de la poitrine, jamais derrière la nuque."},
-      {n:"Développé incliné haltères",g:"Pectoraux",s:3,r:"10-12",rest:90,c:"Pec haut — faisceau claviculaire",
-       alt:["Développé incliné (barre)","Développé incliné (machine)"],
-       tip:"Banc à 30° maximum, cible le haut des pecs."},
-      {n:"Rowing haltère (un bras)",g:"Dos",s:3,r:"10-12",rest:90,c:"Dos unilatéral — corrige les déséquilibres",
-       alt:["Rowing machine (Hammer)"],
-       tip:"Dos plat, coude vers la hanche. Commence par le côté faible."},
-      {n:"Oiseau (deltoïde postérieur)",g:"Épaules",s:3,r:"12-15",rest:60,c:"Deltoïde postérieur",
-       alt:["Reverse pec deck","Face pull poulie"],
-       tip:"Buste penché, monte sur les côtés, pense arrière-épaule et pas trapèzes."},
-      {n:"Élévations latérales haltères",g:"Épaules",s:3,r:"12-15",rest:60,c:"Deltoïde latéral",star:true,
-       alt:["Élévations latérales poulie"],
-       tip:"Mêmes consignes qu'en A, un poil plus léger car fin de séance."},
-      {n:"Curl marteau",g:"Biceps",s:3,r:"10-12",rest:60,c:"Brachial + avant-bras — superset",ss:true,
-       alt:["Curl haltères"],tip:"Prise neutre, coudes fixes."},
-      {n:"Extension poulie barre",g:"Triceps",s:3,r:"10-12",rest:60,c:"Triceps — superset",ss:true,
-       alt:["Dips (triceps)"],tip:"Enchaîné après le marteau, coudes collés."}
-    ]},
-  { id:"D", nom:"Séance D — Bas (unilatéral + fessiers)", icone:"🍑", jour:"Vendredi",
-    resume:"Variantes différentes de la B : unilatéral, moyen fessier, tempo lent.",
-    echauffement:"5-8 min vélo · 1-2 séries légères de leg curl AVANT les quadriceps · 1 série d'approche.",
-    exos:[
-      {n:"Leg curl assis (ischios)",g:"Jambes",s:4,r:"10-12",rest:90,c:"Ischios — variante ≠ de la séance B",ordre:true,
-       alt:["Leg curl allongé (ischios)"],tip:"En 1er, tempo contrôlé."},
-      {n:"Hip thrust",g:"Fessiers",s:4,r:"10-12",rest:120,c:"Grand fessier",
-       alt:["Extension de hanche (machine)"],tip:"Serre en haut, pas de cambrure lombaire."},
-      {n:"Presse à cuisses unilatérale",g:"Jambes",s:3,r:"10-12/jambe",rest:90,c:"Quadriceps unilatéral",
-       alt:["Goblet squat","Fentes bulgares"],
-       tip:"Profondeur confortable, genou dans l'axe. La jambe faible rattrape la forte."},
-      {n:"Abducteurs (machine)",g:"Jambes",s:3,r:"15",rest:60,c:"Moyen fessier — stabilité du genou",
-       alt:["Abduction debout poulie"],tip:"Buste légèrement penché, pousse avec le moyen fessier."},
-      {n:"Leg extension (quadriceps)",g:"Jambes",s:3,r:"15",rest:60,c:"Quadriceps — léger, tempo lent",
-       alt:["Presse à cuisses"],tip:"Tempo lent, angle différent de la B, tout en contrôle."},
-      {n:"Mollets assis (machine)",g:"Mollets",s:4,r:"15",rest:45,c:"Soléaire — genou fléchi",
-       alt:["Mollets debout (machine)"],tip:"Pause en haut, amplitude complète."}
-    ]},
-  { id:"CORE", nom:"Bloc Core — 2×/semaine", icone:"🧱", jour:"Fin de A et C",
-    resume:"Priorité anti-extension pour protéger le bas du dos.",
+  { id:"CORE", nom:"Bloc Core — 2×/semaine", icone:"🧱", jour:"Fin de Push et Pull",
+    resume:"Priorité anti-extension pour protéger le bas du dos. S'ajoute à la séance en cours.",
     echauffement:"",
     exos:[
       {n:"Gainage (planche)",g:"Abdos",s:3,r:"30-45s",rest:45,c:"Transverse — anti-extension",chrono:true,
@@ -826,23 +824,27 @@ const PROGRAMME = [
        alt:["Crunch poulie","Crunch au sol"],tip:"Contrôle, pas d'élan, expire en montant."}
     ]}
 ];
-const CYCLE=["A","B","C","D"];
+const CYCLE=["PUSH","PULL","LEGS"];
+/* Séances de l'ancien programme Upper/Lower (A à D), conservées dans l'historique */
+const SEANCE_ALIAS={B:"LEGS", D:"LEGS"};
+const SEANCE_LABEL={PUSH:"Push", PULL:"Pull", LEGS:"Legs", A:"Haut", B:"Legs", C:"Haut", D:"Legs"};
+const labelSeance = id => SEANCE_LABEL[id] || id;
+const restLabel = r => r>0 ? `${r}s` : "enchaîne";
 const MOBILITE="Ouverture de poitrine (bras contre un montant) + étirement du psoas en fente. 2 min, contre la posture assise du volant.";
 
-function tipFor(name){
-  const s=SEED.find(([n])=>norm(n)===norm(name)); if(s&&s[2]) return s[2];
-  const k=Object.keys(EXTRA_TIPS).find(n=>norm(n)===norm(name)); if(k) return EXTRA_TIPS[k];
-  return "";
-}
-function priseFor(name){
-  const s=SEED.find(([n])=>norm(n)===norm(name)); if(s&&s[3]) return s[3];
-  const k=Object.keys(EXTRA_PRISES).find(n=>norm(n)===norm(name)); if(k) return EXTRA_PRISES[k];
-  return "";
-}
+function seedFor(name){ return SEED.find(([n])=>norm(n)===norm(name)); }
+function extraFor(name){ const k=Object.keys(EXTRA_EXOS).find(n=>norm(n)===norm(name)); return k?EXTRA_EXOS[k]:null; }
+function tipFor(name){ const s=seedFor(name); if(s&&s[2]) return s[2]; const x=extraFor(name); return x?x[1]:""; }
+function priseFor(name){ const s=seedFor(name); if(s&&s[3]) return s[3]; const x=extraFor(name); return x?x[2]:""; }
 function groupFor(name){
-  const s=SEED.find(([n])=>norm(n)===norm(name)); if(s) return s[1];
-  for(const p of PROGRAMME){ const x=p.exos.find(e=>norm(e.n)===norm(name)); if(x) return x.g; }
+  const s=seedFor(name); if(s) return s[1];
+  const x=extraFor(name); if(x) return x[0];
+  for(const p of PROGRAMME){ const e=p.exos.find(e=>norm(e.n)===norm(name)); if(e) return e.g; }
   return "Autre";
+}
+/* Exercices créés automatiquement avant que leur groupe soit connu : on les reclasse */
+function fixGroups(){
+  state.exercises.forEach(e=>{ if(e.auto && e.group==="Autre"){ const g=groupFor(e.name); if(g!=="Autre") e.group=g; } });
 }
 function ensureExercise(name, group){
   let e = state.exercises.find(x=>norm(x.name)===norm(name));
@@ -850,28 +852,30 @@ function ensureExercise(name, group){
   return e;
 }
 function nextSeance(){
-  const done=[...state.sessions].filter(s=>CYCLE.includes(s.seance)).sort((a,b)=>b.date.localeCompare(a.date));
-  if(!done.length) return "A";
-  return CYCLE[(CYCLE.indexOf(done[0].seance)+1)%CYCLE.length];
+  const done=state.sessions.map(s=>({d:s.date, k:SEANCE_ALIAS[s.seance]||s.seance}))
+    .filter(x=>CYCLE.includes(x.k)).sort((a,b)=>b.d.localeCompare(a.d));
+  if(!done.length) return CYCLE[0];
+  return CYCLE[(CYCLE.indexOf(done[0].k)+1)%CYCLE.length];
 }
 function openTemplates(){
   const suiv=nextSeance();
-  openSheet(`<h3>Programme — Upper/Lower 4 jours</h3>
-    <p style="color:var(--muted);font-size:13px;margin:-6px 0 6px;line-height:1.5">Lun A · Mar B · Mer repos · Jeu C · Ven D. Au moins 1 jour entre B et D.<br>Chaque séance couvre toute la zone sans répéter le même mouvement.</p>
-    <div class="nextbox">Prochaine séance conseillée : <b>${suiv}</b></div>
+  openSheet(`<h3>Programme — Push / Pull / Legs</h3>
+    <p style="color:var(--muted);font-size:13px;margin:-6px 0 6px;line-height:1.5">Enchaîne Push, Pull, Legs puis recommence, quels que soient tes jours d'entraînement. Chaque séance couvre toute la zone sans répéter un mouvement : un exercice = un angle ou un chef musculaire.</p>
+    <div class="nextbox">Prochaine séance conseillée : <b>${labelSeance(suiv)}</b></div>
     ${PROGRAMME.map(t=>`
       <div class="card ${t.id===suiv?"next":""}" style="margin-bottom:10px">
         <div class="exo-head"><div>
           <div class="exo-name" style="font-size:16px">${t.icone} ${t.nom}</div>
           <div style="color:var(--muted);font-size:12.5px;margin-top:5px;line-height:1.45">${t.resume}</div>
-        </div><span class="exo-grp" style="margin:0">${t.jour}</span></div>
+        </div><span class="exo-grp" style="margin:0;flex:none;white-space:nowrap">${t.jour}</span></div>
         <div style="margin-top:10px">${t.exos.map(x=>`<div class="tpl-line">
-          <span class="tpl-n">${x.ordre?"① ":""}${x.star?"⭐ ":""}${esc(x.n)}<br><span class="tpl-t2">${esc(x.c)}</span></span>
-          <span class="tpl-t num">${x.s}×${esc(x.r)}<br><span class="tpl-r">${x.rest}s</span></span></div>`).join("")}</div>
-        <button class="btn" style="margin-top:12px" onclick="applyTemplate('${t.id}')">Charger la séance ${t.id}</button>
+          <span class="tpl-n">${x.ordre?"① ":""}${x.star?"⭐ ":""}${x.ss?"⚡ ":""}${esc(x.n)}<br><span class="tpl-t2">${esc(x.c)}</span></span>
+          <span class="tpl-t num">${x.s}×${esc(x.r)}<br><span class="tpl-r">${restLabel(x.rest)}</span></span></div>`).join("")}</div>
+        <button class="btn" style="margin-top:12px" onclick="applyTemplate('${t.id}')">${t.id==="CORE"?"Ajouter le bloc Core":`Charger la séance ${labelSeance(t.id)}`}</button>
       </div>`).join("")}
     <div style="color:var(--faint);font-size:12px;line-height:1.5;padding:4px 2px 0">
       <b>Double progression :</b> quand tu atteins le haut de la fourchette sur toutes les séries, monte la charge et redescends dans le bas.<br>
+      <b>⚡ Superset :</b> enchaîne les deux exercices sans pause, puis repose-toi.<br>
       <b>Alternative :</b> utilise-la seulement si la machine est prise — elle est loggée séparément pour ne pas fausser ta courbe.</div>`);
 }
 function applyTemplate(id){
@@ -895,26 +899,30 @@ function applyTemplate(id){
     added++;
   });
   save(); closeSheet(); go("seance");
-  toast(added?`Séance ${id} chargée · ${added} exercices`:"Déjà dans la séance");
+  toast(!added ? "Déjà dans la séance"
+       : id==="CORE" ? `Bloc Core ajouté · ${added} exercices`
+       : `Séance ${labelSeance(id)} chargée · ${added} exercices`);
 }
+function altOptions(e){ return [e.titulaire, ...(e.alt||[])].filter(Boolean); }
 function openAlt(ei){
   const s=todaySession(), e=s.entries[ei], cur=getExo(e.exerciseId);
-  const opts=[e.titulaire, ...(e.alt||[])].filter(Boolean);
+  const opts=altOptions(e);
   openSheet(`<h3>Changer d'exercice</h3>
     <p style="color:var(--muted);font-size:13px;margin:-6px 0 14px;line-height:1.5">Le titulaire est ton repère à battre. Une alternative garde sa propre courbe de progression, séparée.</p>
-    ${opts.map(n=>`<div class="lib-row">
-      <div class="nm">${esc(n)} ${norm(n)===norm(cur.name)?'<span style="color:var(--good);font-size:12px">· en cours</span>':""}
-        ${norm(n)===norm(e.titulaire)?'<span style="color:var(--muted);font-size:11.5px"><br>Titulaire</span>':'<span style="color:var(--muted);font-size:11.5px"><br>Alternative</span>'}</div>
-      <button class="addhere" onclick="swapAlt(${ei},'${esc(n).replace(/'/g,"\\'")}')">Choisir</button>
+    ${opts.map((n,i)=>`<div class="lib-row">
+      <div class="nm">${esc(n)} ${cur&&norm(n)===norm(cur.name)?'<span style="color:var(--good);font-size:12px">· en cours</span>':""}
+        <span style="color:var(--muted);font-size:11.5px"><br>${i===0?"Titulaire":"Alternative"}</span></div>
+      <button class="addhere" onclick="swapAlt(${ei},${i})">Choisir</button>
     </div>`).join("")}`);
 }
-function swapAlt(ei,name){
+function swapAlt(ei,i){
   const s=todaySession(), e=s.entries[ei];
+  const name=altOptions(e)[i]; if(!name) return;
   const exo=ensureExercise(name);
   e.exerciseId=exo.id;
   e.isAlt = norm(name)!==norm(e.titulaire||name);
   const last=lastPerf(exo.id);
-  e.sets=e.sets.map((st,i)=>{ const p=last?(last.sets[i]||last.sets[last.sets.length-1]):null;
+  e.sets=e.sets.map((st,k)=>{ const p=last?(last.sets[k]||last.sets[last.sets.length-1]):null;
     return {weight:p?p.weight:"", reps:p?p.reps:"", done:false}; });
   save(); closeSheet(); renderSeance(); toast(e.isAlt?"Alternative chargée (courbe séparée)":"Retour au titulaire");
 }
@@ -930,12 +938,18 @@ function progressHint(e){
 /* ---------------- Vue EXERCICES (bibliothèque + tips) ---------------- */
 let libQuery="";
 const norm = s => (s||"").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"");
+/* Exercices par défaut de la toute première version, remplacés par la bibliothèque complète */
+const OLD_DEFAULTS=["Développé couché","Développé incliné haltères","Écarté à la poulie","Tirage vertical","Rowing barre","Tractions","Tirage horizontal","Développé militaire","Élévations latérales","Curl barre","Curl haltères marteau","Extension triceps poulie","Dips","Squat","Presse à cuisses","Fentes haltères","Soulevé de terre","Leg curl","Mollets debout","Gainage","Crunch"];
 function loadFitnessPark(){
   const usedIds=new Set(state.sessions.flatMap(s=>s.entries.map(e=>e.exerciseId)));
-  // on garde : ce qui a un historique, ce qui porte un tip, et tout ce que le programme utilise
   const progNames=new Set();
   PROGRAMME.forEach(t=>t.exos.forEach(x=>{ progNames.add(norm(x.n)); (x.alt||[]).forEach(a=>progNames.add(norm(a))); }));
-  const keep=state.exercises.filter(e=> usedIds.has(e.id) || (e.tips&&e.tips.trim()) || progNames.has(norm(e.name)));
+  const seedNames=new Set(SEED.map(([n])=>norm(n)));
+  const oldDefaults=new Set(OLD_DEFAULTS.map(norm));
+  // seuls les anciens exercices par défaut, jamais utilisés et sans conseil perso, sont remplacés
+  const removable=e=> oldDefaults.has(norm(e.name)) && !seedNames.has(norm(e.name)) && !usedIds.has(e.id)
+                      && !progNames.has(norm(e.name)) && !(e.tips&&e.tips.trim());
+  const keep=state.exercises.filter(e=>!removable(e));
   const keepNames=new Set(keep.map(e=>norm(e.name)));
   const added=SEED.filter(([n])=>!keepNames.has(norm(n))).map(([name,group,tip,pr])=>({id:uid(),name,group,tips:tip||"",prise:pr||"",auto:true,createdAt:Date.now()}));
   // les exercices conservés récupèrent aussi leur conseil s'ils n'en ont pas encore
