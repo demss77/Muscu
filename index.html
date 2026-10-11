@@ -367,7 +367,8 @@ const EXTRA_EXOS = {
  "Planche latérale genou au sol": ["Abdos","Genou du bas au sol, hanche bien haute. Version accessible de la planche latérale.","Sans prise"],
  "Extension triceps au-dessus de la tête (poulie)": ["Triceps","Dos à la poulie, corde derrière la tête, coudes serrés vers l'avant. Même cible que l'extension nuque : le long chef étiré.","Neutre"],
  "Curl marteau poulie (corde)": ["Biceps","Corde à la poulie basse, pouces vers le haut, coudes collés. Tension constante sur le brachial.","Neutre"],
- "Adduction debout poulie": ["Jambes","Sangle à la cheville, ramène la jambe devant l'autre sans pencher le buste.","Sans prise"]
+ "Adduction debout poulie": ["Jambes","Sangle à la cheville, ramène la jambe devant l'autre sans pencher le buste.","Sans prise"],
+ "Tirage horizontal prise large": ["Dos","Prise large et coudes écartés : ça vise le haut du dos et le trapèze moyen, pas le grand dorsal.","Pronation large"]
 };
 const PRISES = ["Supination","Pronation","Neutre","Pronation large","Neutre serrée","Mixte","Supination → pronation","Sans prise"];
 const LS_KEY = "carnet_muscu_v1";
@@ -725,95 +726,107 @@ function lineChart(points,unit){
   </svg>`;
 }
 
-/* ---------------- Programme Push / Pull / Legs ----------------
-   Rotation Push → Pull → Legs, quel que soit le nombre de séances par semaine.
+/* ---------------- Programme — split 4 jours ----------------
+   Pec → Jambes → Dos/Biceps → Épaules. Semaine courte : on saute les épaules, jamais les jambes ni le dos.
    Genou (LCA) : ischios avant quadriceps, chaîne postérieure prioritaire, zéro impact.
    Un exercice = un angle / un chef musculaire. Titulaire = repère à battre ;
    alternative = plan B si machine occupée, loggée à part pour ne pas fausser la courbe. */
 const PROGRAMME = [
-  { id:"PUSH", nom:"Push — Pecs / Épaules / Triceps", icone:"🔺", jour:"Jour 1",
-    resume:"Trois angles de pec, deux faisceaux d'épaule, deux chefs de triceps. L'arrière d'épaule se travaille en Pull.",
-    echauffement:"5 min cardio léger · rotations d'épaules · 1-2 séries légères d'élévations latérales (réveil de la coiffe) · 1 série d'approche au développé couché.",
+  { id:"PEC", nom:"Pectoraux + triceps", icone:"🔺", jour:"Jour 1",
+    resume:"Trois angles de pec, puis les deux chefs de triceps en finition.",
+    echauffement:"5 min cardio léger · rotations d'épaules · 1-2 séries légères d'élévations latérales (réveil de la coiffe) · 1 série d'approche au développé poitrine.",
     exos:[
-      {n:"Développé couché haltères",g:"Pectoraux",s:4,r:"8-10",rest:120,c:"Pec milieu — poussée horizontale",
-       alt:["Développé couché (barre)","Chest press (machine)"],
-       tip:"Omoplates serrées et basses, coudes ~45°, étire bien le pec en bas."},
-      {n:"Développé incliné (machine)",g:"Pectoraux",s:3,r:"10-12",rest:90,c:"Pec haut — faisceau claviculaire",
-       alt:["Développé incliné haltères","Développé incliné (barre)"],
-       tip:"Dossier vers 30°. La machine te laisse pousser fort sans gérer l'équilibre après le couché."},
-      {n:"Écarté poulie haute (crossover)",g:"Pectoraux",s:3,r:"12-15",rest:60,c:"Pec bas + adduction — le seul mouvement sans poussée",
-       alt:["Pec deck / Butterfly","Dips (pectoraux)"],
-       tip:"Poulies en haut, coudes légèrement fléchis. Ramène les mains vers le bas du ventre et croise-les en fin de mouvement."},
-      {n:"Développé épaules haltères",g:"Épaules",s:3,r:"10-12",rest:90,c:"Deltoïde antérieur — poussée verticale",
-       alt:["Développé épaules (machine)","Développé militaire (barre)"],
-       tip:"Assis, dos plaqué au dossier, abdos gainés, pas de cambrure. Descends jusqu'aux oreilles."},
-      {n:"Élévations latérales haltères",g:"Épaules",s:4,r:"12-15",rest:60,c:"Deltoïde latéral — la largeur d'épaule",
-       alt:["Élévations latérales poulie","Élévations latérales (machine)"],
-       tip:"Coudes légèrement fléchis, stop à l'horizontale, descente lente. Si les trapèzes montent, c'est trop lourd."},
-      {n:"Extension nuque haltère",g:"Triceps",s:3,r:"10-12",rest:60,c:"Triceps long chef — bras au-dessus de la tête, donc étiré",
+      {n:"Chest press (machine)",g:"Pectoraux",s:4,r:"10-12",rest:120,c:"Pec milieu — poussée horizontale",
+       alt:["Développé couché haltères","Développé couché (barre)"],
+       tip:"Poignées à hauteur de poitrine, omoplates plaquées au dossier. Ne verrouille pas les coudes en fin de poussée."},
+      {n:"Développé incliné haltères",g:"Pectoraux",s:4,r:"10-12",rest:90,c:"Pec haut — faisceau claviculaire",
+       alt:["Développé incliné (machine)","Développé incliné (barre)"],
+       tip:"Banc à 30° maximum. Plus haut, ce sont les épaules qui prennent le travail."},
+      {n:"Écarté poulie haute (crossover)",g:"Pectoraux",s:3,r:"12-15",rest:60,c:"Adduction en étirement — le seul mouvement sans poussée",
+       alt:["Pec deck / Butterfly","Écarté poulie basse"],
+       tip:"Coudes légèrement fléchis et fixes. Ramène les mains vers le bas du ventre et croise-les en fin de mouvement."},
+      {n:"Dips (pectoraux)",g:"Pectoraux",s:3,r:"12",rest:90,c:"Bas des pecs — poussée buste penché",
+       alt:["Dips (triceps)","Pompes"],
+       tip:"Sur la machine assistée si besoin. Buste penché en avant et coudes ouverts : buste droit, ce sont les triceps qui travaillent."},
+      {n:"Extension poulie corde",g:"Triceps",s:3,r:"12",rest:60,c:"Triceps chefs latéral + médial",
+       alt:["Extension poulie barre","Extension poulie prise inversée"],
+       tip:"Coudes collés au corps, écarte la corde en bas et marque un temps."},
+      {n:"Extension nuque haltère",g:"Triceps",s:3,r:"12",rest:60,c:"Triceps long chef — bras au-dessus de la tête, donc étiré",
        alt:["Extension triceps au-dessus de la tête (poulie)","Barre au front (skull crusher)"],
-       tip:"Coudes serrés et pointés vers l'avant, descends derrière la tête jusqu'à sentir l'étirement."},
-      {n:"Extension poulie corde",g:"Triceps",s:3,r:"12-15",rest:60,c:"Triceps chefs latéral + médial — bras le long du corps",
-       alt:["Extension poulie barre","Dips (triceps)"],
-       tip:"Coudes collés au corps, écarte la corde en bas et marque un temps."}
+       tip:"Coudes serrés et pointés vers l'avant, descends derrière la tête jusqu'à sentir l'étirement."}
     ]},
-  { id:"PULL", nom:"Pull — Dos / Biceps", icone:"🔻", jour:"Jour 2",
-    resume:"Un tirage vertical, un horizontal, un dorsal isolé, l'arrière d'épaule, puis un chef de biceps par exercice.",
-    echauffement:"5 min rameur ou vélo léger · rotations d'épaules · 1-2 séries légères de face pull · 1 série d'approche au tirage vertical.",
-    exos:[
-      {n:"Tirage vertical poulie",g:"Dos",s:4,r:"10-12",rest:90,c:"Grand dorsal — largeur (tirage vertical, prise large)",
-       alt:["Traction assistée (machine)","Tirage vertical prise serrée"],
-       tip:"Prise large. Descends les épaules avant de tirer, barre vers le haut de la poitrine, jamais derrière la nuque."},
-      {n:"Rowing machine (Hammer)",g:"Dos",s:4,r:"10-12",rest:90,c:"Milieu du dos — épaisseur (tirage horizontal)",
-       alt:["Tirage horizontal poulie","Rowing haltère (un bras)"],
-       tip:"Poitrine contre l'appui : le bas du dos ne travaille pas. Tire avec les coudes, serre les omoplates."},
-      {n:"Tirage bras tendus poulie",g:"Dos",s:3,r:"12-15",rest:60,c:"Grand dorsal bas, isolé — les biceps ne participent pas",
-       alt:["Pull-over haltère"],
-       tip:"Bras quasi tendus et verrouillés, ramène la barre jusqu'aux cuisses en contractant le dos."},
-      {n:"Face pull poulie",g:"Épaules",s:3,r:"15",rest:60,c:"Deltoïde postérieur + rotateurs externes",star:true,
-       alt:["Oiseau (deltoïde postérieur)","Reverse pec deck"],
-       tip:"Corde au visage, tire vers le front, coudes hauts, reste léger. Ton exo santé d'épaule de conducteur."},
-      {n:"Curl incliné haltères",g:"Biceps",s:3,r:"10-12",rest:60,c:"Biceps long chef — bras en arrière, donc étiré",
-       alt:["Curl haltères","Curl poulie"],
-       tip:"Banc à 45-60°, bras pendants derrière le buste. Aucun élan, descente complète."},
-      {n:"Curl pupitre (preacher)",g:"Biceps",s:3,r:"10-12",rest:60,c:"Biceps court chef — bras devant le corps",
-       alt:["Curl machine","Curl concentration"],
-       tip:"Aisselles calées contre le pupitre. Ne verrouille pas le coude en bas sous charge lourde."},
-      {n:"Curl marteau",g:"Biceps",s:3,r:"10-12",rest:60,c:"Brachial + brachio-radial — l'épaisseur du bras",
-       alt:["Curl marteau poulie (corde)"],
-       tip:"Prise neutre, coudes fixes. Le brachial, sous le biceps, le pousse vers le haut."}
-    ]},
-  { id:"LEGS", nom:"Legs — Jambes / Fessiers", icone:"🦵", jour:"Jour 3",
-    resume:"Ischios en premier pour le genou, puis chaque muscle de la jambe par sa propre fonction. Zéro impact.",
+  { id:"JAMBES", nom:"Jambes (adapté genou)", icone:"🦵", jour:"Jour 2",
+    resume:"Ischios en premier pour le genou, puis fessiers, quadriceps, mollets et gainage. Zéro impact.",
     echauffement:"5-8 min vélo · 1-2 séries légères de leg curl AVANT de charger les quadriceps · 1 série d'approche à la presse.",
     exos:[
-      {n:"Leg curl allongé (ischios)",g:"Jambes",s:4,r:"10-12",rest:90,c:"Ischios — flexion du genou",ordre:true,
+      {n:"Leg curl allongé (ischios)",g:"Jambes",s:4,r:"12",rest:90,c:"Ischios — flexion du genou",ordre:true,
        alt:["Leg curl assis (ischios)"],
        tip:"Toujours en 1er : il stabilise le genou avant les quadriceps. Contrôle la descente, aucun à-coup."},
-      {n:"Hip thrust",g:"Fessiers",s:3,r:"8-12",rest:120,c:"Grand fessier — extension de hanche",
+      {n:"Presse à cuisses",g:"Jambes",s:4,r:"12",rest:120,c:"Quadriceps + fessiers — pieds hauts sur le plateau",
+       alt:["Hack squat","Presse à cuisses unilatérale"],
+       tip:"Pieds hauts et écartés : plus de fessiers, moins de cisaillement sur le genou. Amplitude confortable, dos collé au dossier."},
+      {n:"Hip thrust",g:"Fessiers",s:3,r:"12",rest:120,c:"Grand fessier — extension de hanche",
        alt:["Extension de hanche (machine)","Pont fessier"],
        tip:"Menton rentré, pousse dans les talons, serre 1 seconde en haut. Mouvement qui encaisse lourd : charge sans crainte."},
-      {n:"Presse à cuisses",g:"Jambes",s:3,r:"10-12",rest:120,c:"Quadriceps + fessiers — poussée",
-       alt:["Hack squat","Fentes bulgares"],
-       tip:"Amplitude confortable, jamais douloureuse. Genoux dans l'axe des pieds, bas du dos collé au dossier."},
       {n:"Soulevé de terre roumain",g:"Jambes",s:3,r:"10-12",rest:90,c:"Ischios en étirement — par la hanche, pas par le genou",
        alt:["Good morning","Hyperextensions (lombaires)"],
        tip:"Fessiers en arrière, jambes quasi tendues, dos plat. Tu dois sentir les ischios tirer, pas le bas du dos."},
-      {n:"Leg extension (quadriceps)",g:"Jambes",s:3,r:"12-15",rest:60,c:"Quadriceps isolé — dont le droit fémoral, que la presse sollicite peu",
+      {n:"Leg extension (quadriceps)",g:"Jambes",s:2,r:"15",rest:60,c:"Quadriceps isolé — charge légère, amplitude contrôlée",
        alt:["Presse à cuisses unilatérale"],
-       tip:"Contrôlé, sans à-coup, pas d'hyperextension violente. Toujours après le leg curl."},
-      {n:"Abducteurs (machine)",g:"Jambes",s:3,r:"15",rest:0,c:"Moyen fessier — empêche le genou de rentrer",ss:true,
+       tip:"Léger, lent, sans à-coup et sans hyperextension. Toujours après le leg curl."},
+      {n:"Abducteurs (machine)",g:"Jambes",s:3,r:"15",rest:60,c:"Moyen fessier — empêche le genou de rentrer",
        alt:["Abduction debout poulie"],
-       tip:"Buste légèrement penché en avant, pousse avec l'extérieur de la hanche. Enchaîne directement les adducteurs."},
-      {n:"Adducteurs (machine)",g:"Jambes",s:3,r:"15",rest:60,c:"Adducteurs — intérieur de cuisse",ss:true,
-       alt:["Adduction debout poulie"],
-       tip:"Amplitude progressive, ne force jamais l'écartement à froid. Repos seulement après ce duo."},
-      {n:"Mollets debout (machine)",g:"Mollets",s:4,r:"12-15",rest:45,c:"Gastrocnémiens — jambe tendue",
+       tip:"Buste légèrement penché en avant, pousse avec l'extérieur de la hanche."},
+      {n:"Mollets debout (machine)",g:"Mollets",s:4,r:"15-20",rest:45,c:"Gastrocnémiens — jambe tendue",
        alt:["Mollets assis (machine)","Mollets à la presse"],
-       tip:"Amplitude complète, pause 1 seconde en haut et en bas. L'alternative assise cible le soléaire."}
+       tip:"Amplitude complète, pause 1 seconde en haut et en bas."},
+      {n:"Gainage (planche)",g:"Abdos",s:3,r:"30-45s",rest:45,c:"Transverse — anti-extension",chrono:true,
+       alt:["Planche sur les genoux"],tip:"Fessiers serrés, pas de creux lombaire."},
+      {n:"Planche latérale",g:"Abdos",s:3,r:"20-30s/côté",rest:45,c:"Obliques + carré des lombes",chrono:true,
+       alt:["Planche latérale genou au sol"],tip:"Corps aligné, hanche haute. Si la séance est trop longue, garde-la pour un autre jour."}
     ]},
-  { id:"CORE", nom:"Bloc Core — 2×/semaine", icone:"🧱", jour:"Fin de Push et Pull",
-    resume:"Priorité anti-extension pour protéger le bas du dos. S'ajoute à la séance en cours.",
+  { id:"DOS", nom:"Dos + biceps", icone:"🔻", jour:"Jour 3",
+    resume:"Un tirage vertical, deux horizontaux à trajectoires différentes, l'arrière d'épaule, puis les biceps.",
+    echauffement:"5 min rameur ou vélo léger · rotations d'épaules · 1-2 séries légères de face pull · 1 série d'approche au tirage vertical.",
+    exos:[
+      {n:"Tirage vertical poulie",g:"Dos",s:4,r:"10-12",rest:90,c:"Grand dorsal — largeur (plan vertical)",
+       alt:["Traction assistée (machine)","Tirage vertical prise serrée"],
+       tip:"Descends les épaules avant de tirer, barre vers le haut de la poitrine, jamais derrière la nuque."},
+      {n:"Rowing machine (Hammer)",g:"Dos",s:4,r:"10-12",rest:90,c:"Grand dorsal + rhomboïdes — coudes serrés",
+       alt:["Tirage horizontal poulie","Rowing haltère (un bras)"],
+       tip:"Poitrine contre l'appui, coudes le long du corps : le bas du dos ne travaille pas."},
+      {n:"Tirage horizontal prise large",g:"Dos",s:3,r:"12",rest:60,c:"Haut du dos + trapèze moyen — coudes écartés",
+       alt:["Rowing T-bar","Tirage bras tendus poulie"],
+       tip:"Barre large, coudes ouverts à 90°, tire vers le haut du ventre. Trajectoire différente du rowing, c'est le but."},
+      {n:"Face pull poulie",g:"Épaules",s:3,r:"15",rest:60,c:"Deltoïde postérieur + rotateurs externes",star:true,
+       alt:["Oiseau (deltoïde postérieur)","Reverse pec deck"],
+       tip:"Corde au visage, tire vers le front, coudes hauts, reste léger. Ton exo santé d'épaule de conducteur."},
+      {n:"Curl barre EZ",g:"Biceps",s:4,r:"12",rest:60,c:"Biceps — les deux chefs",
+       alt:["Curl machine","Curl haltères"],
+       tip:"Coudes collés et parfaitement immobiles. Aucun balancier du buste."},
+      {n:"Curl marteau",g:"Biceps",s:3,r:"12",rest:60,c:"Brachial + brachio-radial — l'épaisseur du bras",
+       alt:["Curl marteau poulie (corde)"],
+       tip:"Prise neutre, coudes fixes. Le brachial, sous le biceps, le pousse vers le haut."}
+    ]},
+  { id:"EPAULES", nom:"Épaules", icone:"🎯", jour:"Jour 4",
+    resume:"Un faisceau par exercice, plus le trapèze. La séance la plus courte : tes épaules travaillent déjà le jour pec.",
+    echauffement:"5 min cardio léger · rotations d'épaules et de coiffe · 1-2 séries très légères d'élévations latérales · 1 série d'approche au développé épaules.",
+    exos:[
+      {n:"Développé épaules haltères",g:"Épaules",s:4,r:"10-12",rest:90,c:"Deltoïde antérieur — poussée verticale",
+       alt:["Développé épaules (machine)","Développé militaire (barre)"],
+       tip:"Assis, dos plaqué au dossier, abdos gainés, pas de cambrure. Descends jusqu'aux oreilles."},
+      {n:"Élévations latérales haltères",g:"Épaules",s:4,r:"15",rest:60,c:"Deltoïde latéral — la largeur d'épaule",
+       alt:["Élévations latérales poulie","Élévations latérales (machine)"],
+       tip:"Coudes légèrement fléchis, stop à l'horizontale, descente lente. Si les trapèzes montent, c'est trop lourd. La version poulie est en alternative, pas en plus."},
+      {n:"Oiseau (deltoïde postérieur)",g:"Épaules",s:4,r:"15",rest:60,c:"Deltoïde postérieur",
+       alt:["Reverse pec deck","Face pull poulie"],
+       tip:"Buste penché, pouces vers le sol, monte sur les côtés. Pense arrière de l'épaule, surtout pas trapèzes."},
+      {n:"Haussements d'épaules (shrugs)",g:"Dos",s:3,r:"15",rest:60,c:"Trapèze supérieur",
+       alt:["Farmer's walk"],
+       tip:"Monte droit vers les oreilles, pause en haut. Les rotations d'épaules n'apportent rien."}
+    ]},
+  { id:"CORE", nom:"Bloc Core", icone:"🧱", jour:"En option",
+    resume:"S'ajoute à la séance en cours. Priorité anti-extension pour protéger le bas du dos.",
     echauffement:"",
     exos:[
       {n:"Gainage (planche)",g:"Abdos",s:3,r:"30-45s",rest:45,c:"Transverse — anti-extension",chrono:true,
@@ -824,10 +837,11 @@ const PROGRAMME = [
        alt:["Crunch poulie","Crunch au sol"],tip:"Contrôle, pas d'élan, expire en montant."}
     ]}
 ];
-const CYCLE=["PUSH","PULL","LEGS"];
-/* Séances de l'ancien programme Upper/Lower (A à D), conservées dans l'historique */
-const SEANCE_ALIAS={B:"LEGS", D:"LEGS"};
-const SEANCE_LABEL={PUSH:"Push", PULL:"Pull", LEGS:"Legs", A:"Haut", B:"Legs", C:"Haut", D:"Legs"};
+const CYCLE=["PEC","JAMBES","DOS","EPAULES"];
+/* Anciennes séances (Push/Pull/Legs, puis Upper/Lower A-D) : la rotation sait d'où tu viens */
+const SEANCE_ALIAS={PUSH:"PEC", PULL:"DOS", LEGS:"JAMBES", A:"PEC", B:"JAMBES", C:"EPAULES", D:"JAMBES"};
+const SEANCE_LABEL={PEC:"Pec", JAMBES:"Jambes", DOS:"Dos", EPAULES:"Épaules",
+                    PUSH:"Push", PULL:"Pull", LEGS:"Legs", A:"Haut", B:"Legs", C:"Haut", D:"Legs"};
 const labelSeance = id => SEANCE_LABEL[id] || id;
 const restLabel = r => r>0 ? `${r}s` : "enchaîne";
 const MOBILITE="Ouverture de poitrine (bras contre un montant) + étirement du psoas en fente. 2 min, contre la posture assise du volant.";
@@ -859,8 +873,8 @@ function nextSeance(){
 }
 function openTemplates(){
   const suiv=nextSeance();
-  openSheet(`<h3>Programme — Push / Pull / Legs</h3>
-    <p style="color:var(--muted);font-size:13px;margin:-6px 0 6px;line-height:1.5">Enchaîne Push, Pull, Legs puis recommence, quels que soient tes jours d'entraînement. Chaque séance couvre toute la zone sans répéter un mouvement : un exercice = un angle ou un chef musculaire.</p>
+  openSheet(`<h3>Programme — split 4 jours</h3>
+    <p style="color:var(--muted);font-size:13px;margin:-6px 0 6px;line-height:1.5">Pec → Jambes → Dos/Biceps → Épaules, dans cet ordre. Semaine à 3 séances : saute les épaules, jamais les jambes ni le dos.</p>
     <div class="nextbox">Prochaine séance conseillée : <b>${labelSeance(suiv)}</b></div>
     ${PROGRAMME.map(t=>`
       <div class="card ${t.id===suiv?"next":""}" style="margin-bottom:10px">
@@ -875,7 +889,7 @@ function openTemplates(){
       </div>`).join("")}
     <div style="color:var(--faint);font-size:12px;line-height:1.5;padding:4px 2px 0">
       <b>Double progression :</b> quand tu atteins le haut de la fourchette sur toutes les séries, monte la charge et redescends dans le bas.<br>
-      <b>⚡ Superset :</b> enchaîne les deux exercices sans pause, puis repose-toi.<br>
+      <b>Cardio :</b> vélo ou marche inclinée, après la muscu ou un jour à part — jamais avant.<br>
       <b>Alternative :</b> utilise-la seulement si la machine est prise — elle est loggée séparément pour ne pas fausser ta courbe.</div>`);
 }
 function applyTemplate(id){
