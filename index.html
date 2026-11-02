@@ -109,7 +109,11 @@ h2.vt{font-family:var(--num); font-weight:600; font-size:15px; color:var(--muted
 .sets{margin-top:12px; display:flex; flex-direction:column; gap:8px}
 .set-hd{display:grid; grid-template-columns:26px 1fr 1fr 44px 40px; gap:8px; font-size:10.5px; color:var(--faint); padding:0 2px}
 .set-row{display:grid; grid-template-columns:26px 1fr 1fr 44px 40px; gap:8px; align-items:center}
-.set-idx{font-family:var(--num); color:var(--muted); text-align:center; font-size:14px}
+.set-idx{font-family:var(--num); color:var(--muted); text-align:center; font-size:14px; background:none; border:none; padding:10px 0; border-radius:8px}
+.set-idx:active{background:var(--surface2)}
+.set-row.drop .set-idx{color:var(--accent); font-size:16px; font-weight:700}
+.set-row.drop .set-in{border-color:color-mix(in srgb,var(--accent) 35%,transparent); background:color-mix(in srgb,var(--accent) 7%,var(--surface2))}
+.set-row.drop .set-in:focus{border-color:var(--accent); background:var(--bg)}
 .set-in{width:100%; background:var(--surface2); border:1px solid transparent; border-radius:10px; padding:11px 8px; font-family:var(--num); font-size:17px; text-align:center; -moz-appearance:textfield}
 .set-in::-webkit-outer-spin-button,.set-in::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
 .set-in:focus{border-color:var(--accent); background:var(--bg)}
@@ -122,7 +126,9 @@ h2.vt{font-family:var(--num); font-weight:600; font-size:15px; color:var(--muted
 .card-foot{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:12px}
 .addset{flex:1; background:var(--surface2); border:1px dashed var(--line); border-radius:11px; padding:11px; color:var(--text); font-weight:600; font-size:14px}
 .addset:active{background:var(--bg)}
+.addset.dropbtn{flex:0 0 auto; color:var(--accent); border-color:color-mix(in srgb,var(--accent) 45%,var(--line)); padding:11px 14px}
 .stat{font-size:12px; color:var(--muted); white-space:nowrap}
+.stat-line{text-align:right; margin-top:8px}
 .stat b{font-family:var(--num); color:var(--text); font-weight:600}
 
 .exo-note{margin-top:10px}
@@ -330,6 +336,7 @@ const SEED = [
   // Biceps
   ["Curl barre EZ","Biceps","Coudes collés au corps et parfaitement immobiles. Aucun balancier du buste.","Supination"],["Curl haltères","Biceps","Tourne le poignet vers l'extérieur en montant pour finir la contraction du biceps.","Supination"],["Curl marteau","Biceps","Prise neutre : cible le brachial, le muscle qui pousse le biceps vers le haut et épaissit le bras.","Neutre"],["Curl incliné haltères","Biceps","Bras en arrière du buste : le long chef travaille étiré. C'est tout l'intérêt de l'exercice.","Supination"],
   ["Curl pupitre (preacher)","Biceps","Ne tends pas complètement le bras en bas sous charge lourde, le coude n'aime pas.","Supination"],["Curl poulie","Biceps","Tension constante du début à la fin. Parfait en dernier exercice de bras.","Supination"],["Curl concentration","Biceps","Coude calé contre la cuisse. Cherche le pic de contraction, pas la charge.","Supination"],["Curl machine","Biceps","Idéal pour aller à l'échec en sécurité en fin de séance.","Supination"],
+  ["Spider curl","Biceps","Poitrine contre un banc incliné, bras pendants à la verticale. Serre 1 seconde en haut : aucun élan possible, donc reste léger.","Supination"],
   // Triceps
   ["Extension poulie corde","Triceps","Écarte la corde en fin de mouvement et marque un temps. Coudes fixes le long du corps.","Neutre"],["Extension poulie barre","Triceps","Prise en pronation, coudes verrouillés. Ne laisse pas les épaules avancer.","Pronation"],["Extension poulie prise inversée","Triceps","Prise en supination : cible le chef médial, presque toujours négligé.","Supination"],
   ["Barre au front (skull crusher)","Triceps","Descends derrière le front plutôt que dessus : la tension ne retombe jamais.","Pronation"],["Extension nuque haltère","Triceps","Bras au-dessus de la tête, donc long chef en étirement. Coudes serrés vers l'avant.","Neutre"],["Dips (triceps)","Triceps","Buste droit et coudes serrés. Descends jusqu'à l'angle droit, pas plus bas.","Neutre"],
@@ -403,6 +410,47 @@ function seedIfNeeded(){
     state.settings.seeded = true;
   }
   fixGroups();
+  migrate();
+}
+/* Nouveautés de la bibliothèque, ajoutées une fois aux carnets existants */
+function migrate(){
+  const m=state.settings.migr||0;
+  if(m<1){ ensureExercise("Spider curl","Biceps"); state.settings.migr=1; }
+  if(m<2){
+    // Le curl qui remplaçait le curl barre EZ était en fait ton spider curl : sa courbe est rattachée au spider curl
+    const spider=ensureExercise("Spider curl","Biceps");
+    state.sessions.forEach(s=>s.entries.forEach(e=>{
+      const ex=getExo(e.exerciseId);
+      if(ex && ex.id!==spider.id && norm(e.titulaire)===norm("Curl barre EZ") && norm(ex.name)===norm("Curl machine")
+         && !s.entries.some(o=>o.exerciseId===spider.id)){
+        e.exerciseId=spider.id; e.titulaire="Spider curl"; delete e.isAlt;
+      }
+    }));
+    state.settings.migr=2;
+  }
+}
+
+/* Sauvegarde du 2 novembre 2026 intégrée à l'appli.
+   Chargée une seule fois, et seulement si l'appli est vide ou plus ancienne que la sauvegarde :
+   des données plus récentes ne sont jamais écrasées. */
+const BACKUP_ID="2026-11-02";
+function applyEmbeddedBackup(){
+  if(state.settings.backupApplied===BACKUP_ID) return false;
+  const has=state.sessions.some(s=>s.entries&&s.entries.length);
+  let used=false;
+  if(!has || (state.updatedAt||0) < (BACKUP.updatedAt||0)){
+    state=cleanState(JSON.parse(JSON.stringify(BACKUP))); used=true;
+  }
+  state.settings.backupApplied=BACKUP_ID;
+  return used;
+}
+function restoreBackup(){
+  ask("Restaurer la sauvegarde du 2 nov. ?", "Ton carnet sera remplacé par la sauvegarde intégrée (séances jusqu'au 31 octobre). Ce que tu as noté depuis sera perdu.", "Restaurer", ()=>{
+    const theme=state.settings.theme;
+    state=cleanState(JSON.parse(JSON.stringify(BACKUP)));
+    state.settings.backupApplied=BACKUP_ID; state.settings.theme=theme;
+    seedIfNeeded(); applyTheme(); save(); renderAll(); toast("Sauvegarde restaurée");
+  }, true);
 }
 
 /* db : source durable liée au compte. localStorage = miroir instantané + secours. */
@@ -529,7 +577,7 @@ function sessionCard(e,ei){
   const isPR = entryBestW(e)>0 && entryBestW(e)>hmax.maxW;
   const vol=entryVolume(e), b1=entryBest1(e);
   let lastTxt="Première fois sur cet exercice";
-  if(last){ lastTxt = `Dernière fois (${fmtDateShort(last.date)}) : ` + last.sets.map(x=>`${fmt(x.weight)}×${x.reps}`).join(" · "); }
+  if(last){ lastTxt = `Dernière fois (${fmtDateShort(last.date)}) : ` + setsTxt(last.sets," · "); }
   const rpe=!!state.settings.rpe;
   return `<div class="card ${isPR?"pr":""} ${rpe?"rpe-on":""}" data-ei="${ei}">
     <div class="exo-head">
@@ -558,8 +606,8 @@ function sessionCard(e,ei){
     <div class="set-hd"><div></div><div>${e.chrono?"Lest (kg)":"Poids (kg)"}</div><div>${e.chrono?"Secondes":"Reps"}</div>${rpe?"<div>RPE</div>":""}<div>Fait</div><div></div></div>
     <div class="sets">
       ${e.sets.map((st,si)=>`
-        <div class="set-row ${st.done?"done":""}">
-          <div class="set-idx">${si+1}</div>
+        <div class="set-row ${st.done?"done":""} ${st.drop?"drop":""}">
+          <button class="set-idx" onclick="toggleDrop(${ei},${si})" title="${st.drop?"Série dégressive — toucher pour annuler":"Toucher pour en faire une dégressive"}">${st.drop?"↘":setNum(e.sets,si)}</button>
           <input class="set-in" inputmode="decimal" value="${st.weight??""}" placeholder="0"
                  oninput="editSet(${ei},${si},'weight',this.value)">
           <input class="set-in" inputmode="numeric" value="${st.reps??""}" placeholder="0"
@@ -572,8 +620,9 @@ function sessionCard(e,ei){
     ${progressHint(e)}
     <div class="card-foot">
       <button class="addset" onclick="addSet(${ei})">＋ Série</button>
-      <div class="stat">Vol <b>${Math.round(vol).toLocaleString("fr-FR")}</b> · 1RM~ <b>${b1?fmt(b1):"—"}</b></div>
+      ${e.chrono?"":`<button class="addset dropbtn" onclick="addDrop(${ei})">↘ Dégressif</button>`}
     </div>
+    <div class="stat stat-line">Vol <b>${Math.round(vol).toLocaleString("fr-FR")}</b> · 1RM~ <b>${b1?fmt(b1):"—"}</b></div>
     <div class="exo-note">
       <textarea placeholder="Note du jour (sensation, réglage machine…)" oninput="editNote(${ei},this.value)">${esc(e.note||"")}</textarea>
     </div>
@@ -596,9 +645,29 @@ function editSet(ei,si,field,val){
 function editNote(ei,val){ todaySession().entries[ei].note=val; save(); }
 function addSet(ei){
   const s=todaySession(); const sets=s.entries[ei].sets;
-  const prev = sets[sets.length-1] || (lastPerf(s.entries[ei].exerciseId)?.sets?.slice(-1)[0]) || {weight:"",reps:""};
+  // on recopie la dernière vraie série, pas une dégressive
+  const prev = mainSets(sets).slice(-1)[0] || mainSets(lastPerf(s.entries[ei].exerciseId)?.sets).slice(-1)[0] || {weight:"",reps:""};
   sets.push({weight:prev.weight??"", reps:prev.reps??"", done:false});
   save(); renderSeance();
+}
+/* ---- Séries dégressives : enchaînées sans repos, charge allégée ---- */
+const mainSets = sets => (sets||[]).filter(x=>!x.drop);
+const setNum = (sets,si) => sets.slice(0,si+1).filter(x=>!x.drop).length;
+const setTxt = x => `${x.drop?"↘":""}${fmt(x.weight)}×${x.reps}`;
+const setsTxt = (sets,sep) => (sets||[]).map(setTxt).join(sep);
+const dropWeight = w => { const n=parseFloat(w); if(!(n>0)) return ""; const r=Math.round(n*0.75/2.5)*2.5; return r>0?r:""; };
+function addDrop(ei){
+  const s=todaySession(); const sets=s.entries[ei].sets;
+  if(!sets.length){ toast("Fais d'abord une série normale"); return; }
+  const prev=sets[sets.length-1];
+  sets.push({weight:dropWeight(prev.weight), reps:"", done:false, drop:true});
+  save(); renderSeance(); toast("↘ Dégressive ajoutée · −25 %, sans repos");
+}
+function toggleDrop(ei,si){
+  const st=todaySession().entries[ei].sets[si];
+  if(si===0 && !st.drop){ toast("La 1re série ne peut pas être une dégressive"); return; }
+  st.drop=!st.drop; if(!st.drop) delete st.drop;
+  save(); renderSeance(); toast(st.drop?"↘ Série marquée dégressive":"Série normale");
 }
 function removeSet(ei,si){ const s=todaySession(); s.entries[ei].sets.splice(si,1); save(); renderSeance(); }
 function toggleDone(ei,si){
@@ -608,6 +677,8 @@ function toggleDone(ei,si){
     const hmax=historicalMax(s.entries[ei].exerciseId,true);
     const pr = st.weight && st.weight>hmax.maxW && hmax.maxW>0;
     if(pr){ toast("🏆 Nouveau record !","pr"); if(navigator.vibrate)navigator.vibrate([40,60,40]); }
+    const next=s.entries[ei].sets[si+1];
+    if(next && next.drop){ timerStop(); if(!pr) toast("↘ Enchaîne la dégressive, sans repos"); renderSeance(); return; }
     const tg=s.entries[ei].target;
     const rest = tg && typeof tg.rest==="number" ? tg.rest : state.settings.restSec;
     if(rest>0) timerStart(rest); else if(!pr) toast("⚡ Enchaîne avec l'exercice suivant");
@@ -617,14 +688,15 @@ function toggleDone(ei,si){
 function removeEntry(ei){ const s=todaySession(); s.entries.splice(ei,1); if(!s.entries.length){ state.sessions=state.sessions.filter(x=>x!==s);} save(); renderSeance(); }
 function repeatLast(ei){
   const s=todaySession(); const last=lastPerf(s.entries[ei].exerciseId); if(!last)return;
-  s.entries[ei].sets = last.sets.map(x=>({weight:x.weight, reps:x.reps, done:false}));
+  s.entries[ei].sets = last.sets.map(copySet);
   save(); renderSeance(); toast("Séries reprises");
 }
+const copySet = x => x.drop ? {weight:x.weight, reps:x.reps, done:false, drop:true} : {weight:x.weight, reps:x.reps, done:false};
 function addExerciseToToday(exoId){
   const s=getOrCreateToday();
   if(s.entries.some(e=>e.exerciseId===exoId)){ toast("Déjà dans la séance"); return; }
   const last=lastPerf(exoId);
-  const sets = last ? last.sets.map(x=>({weight:x.weight,reps:x.reps,done:false})) : [{weight:"",reps:"",done:false}];
+  const sets = last ? last.sets.map(copySet) : [{weight:"",reps:"",done:false}];
   s.entries.push({exerciseId:exoId, sets, note:""});
   save(); closeSheet(); go("seance");
 }
@@ -644,7 +716,7 @@ function renderHisto(){
       <div class="day-body" id="day-${i}">
         ${s.entries.map(e=>{const exo=getExo(e.exerciseId);return `<div class="day-exo">
           <div class="en">${exo?esc(exo.name):"?"}</div>
-          <div class="es">${e.sets.map(x=>`${fmt(x.weight)}×${x.reps}`).join("  ·  ")||"—"}</div>
+          <div class="es">${setsTxt(e.sets,"  ·  ")||"—"}</div>
           ${e.note?`<div class="es" style="margin-top:4px">📝 ${esc(e.note)}</div>`:""}
         </div>`;}).join("")}
         <button class="btn danger" style="margin-top:12px" onclick="deleteSession('${s.date}')">Supprimer cette séance</button>
@@ -699,7 +771,7 @@ function renderProg(){
     <div class="chartwrap">${points.length>=2?lineChart(points,unit):`<div style="color:var(--muted);font-size:13px;padding:12px;text-align:center">Il faut au moins 2 séances pour tracer la courbe.</div>`}</div>
     <div class="card"><div style="font-size:12px;color:var(--muted);margin-bottom:4px" class="num">Détail par séance</div>
       ${[...hist].reverse().map(h=>`<div class="hist-row"><span class="d">${fmtDate(h.date)}</span>
-        <span class="s">${h.sets.map(x=>`${fmt(x.weight)}×${x.reps}`).join(" · ")}</span></div>`).join("")}
+        <span class="s">${setsTxt(h.sets," · ")}</span></div>`).join("")}
     </div>`;
 }
 function lineChart(points,unit){
@@ -742,21 +814,21 @@ const PROGRAMME = [
       {n:"Développé incliné haltères",g:"Pectoraux",s:4,r:"10-12",rest:90,c:"Pec haut — faisceau claviculaire",
        alt:["Développé incliné (machine)","Développé incliné (barre)"],
        tip:"Banc à 30° maximum. Plus haut, ce sont les épaules qui prennent le travail."},
-      {n:"Écarté poulie haute (crossover)",g:"Pectoraux",s:3,r:"12-15",rest:60,c:"Adduction en étirement — le seul mouvement sans poussée",
-       alt:["Pec deck / Butterfly","Écarté poulie basse"],
-       tip:"Coudes légèrement fléchis et fixes. Ramène les mains vers le bas du ventre et croise-les en fin de mouvement."},
+      {n:"Pec deck / Butterfly",g:"Pectoraux",s:3,r:"12-15",rest:60,c:"Adduction — le seul mouvement sans poussée",
+       alt:["Écarté poulie haute (crossover)","Écarté poulie basse"],
+       tip:"Poignées à hauteur de poitrine, coudes légèrement fléchis et fixes. Pense à rapprocher les coudes, pas les mains, et serre 1 seconde au centre."},
       {n:"Dips (pectoraux)",g:"Pectoraux",s:3,r:"12",rest:90,c:"Bas des pecs — poussée buste penché",
        alt:["Dips (triceps)","Pompes"],
        tip:"Sur la machine assistée si besoin. Buste penché en avant et coudes ouverts : buste droit, ce sont les triceps qui travaillent."},
       {n:"Extension poulie corde",g:"Triceps",s:3,r:"12",rest:60,c:"Triceps chefs latéral + médial",
        alt:["Extension poulie barre","Extension poulie prise inversée"],
        tip:"Coudes collés au corps, écarte la corde en bas et marque un temps."},
-      {n:"Extension nuque haltère",g:"Triceps",s:3,r:"12",rest:60,c:"Triceps long chef — bras au-dessus de la tête, donc étiré",
-       alt:["Extension triceps au-dessus de la tête (poulie)","Barre au front (skull crusher)"],
-       tip:"Coudes serrés et pointés vers l'avant, descends derrière la tête jusqu'à sentir l'étirement."}
+      {n:"Extension triceps au-dessus de la tête (poulie)",g:"Triceps",s:3,r:"12",rest:60,c:"Triceps long chef — bras au-dessus de la tête, donc étiré",
+       alt:["Extension nuque haltère","Barre au front (skull crusher)"],
+       tip:"Dos à la poulie, corde derrière la tête, coudes serrés et pointés vers l'avant. Laisse la corde descendre jusqu'à sentir l'étirement."}
     ]},
   { id:"JAMBES", nom:"Jambes (adapté genou)", icone:"🦵", jour:"Jour 2",
-    resume:"Ischios en premier pour le genou, puis fessiers, quadriceps, mollets et gainage. Zéro impact.",
+    resume:"Ischios en premier pour le genou, puis fessiers, quadriceps, abducteurs et adducteurs enchaînés. Zéro impact. Les mollets sont le jour épaules, le gainage dans le bloc Core.",
     echauffement:"5-8 min vélo · 1-2 séries légères de leg curl AVANT de charger les quadriceps · 1 série d'approche à la presse.",
     exos:[
       {n:"Leg curl allongé (ischios)",g:"Jambes",s:4,r:"12",rest:90,c:"Ischios — flexion du genou",ordre:true,
@@ -768,26 +840,19 @@ const PROGRAMME = [
       {n:"Hip thrust",g:"Fessiers",s:3,r:"12",rest:120,c:"Grand fessier — extension de hanche",
        alt:["Extension de hanche (machine)","Pont fessier"],
        tip:"Menton rentré, pousse dans les talons, serre 1 seconde en haut. Mouvement qui encaisse lourd : charge sans crainte."},
-      {n:"Soulevé de terre roumain",g:"Jambes",s:3,r:"10-12",rest:90,c:"Ischios en étirement — par la hanche, pas par le genou",
-       alt:["Good morning","Hyperextensions (lombaires)"],
-       tip:"Fessiers en arrière, jambes quasi tendues, dos plat. Tu dois sentir les ischios tirer, pas le bas du dos."},
       {n:"Leg extension (quadriceps)",g:"Jambes",s:2,r:"15",rest:60,c:"Quadriceps isolé — charge légère, amplitude contrôlée",
        alt:["Presse à cuisses unilatérale"],
        tip:"Léger, lent, sans à-coup et sans hyperextension. Toujours après le leg curl."},
-      {n:"Abducteurs (machine)",g:"Jambes",s:3,r:"15",rest:60,c:"Moyen fessier — empêche le genou de rentrer",
+      {n:"Abducteurs (machine)",g:"Jambes",s:3,r:"15-20",rest:0,c:"Moyen fessier — empêche le genou de rentrer",ss:true,
        alt:["Abduction debout poulie"],
-       tip:"Buste légèrement penché en avant, pousse avec l'extérieur de la hanche."},
-      {n:"Mollets debout (machine)",g:"Mollets",s:4,r:"15-20",rest:45,c:"Gastrocnémiens — jambe tendue",
-       alt:["Mollets assis (machine)","Mollets à la presse"],
-       tip:"Amplitude complète, pause 1 seconde en haut et en bas."},
-      {n:"Gainage (planche)",g:"Abdos",s:3,r:"30-45s",rest:45,c:"Transverse — anti-extension",chrono:true,
-       alt:["Planche sur les genoux"],tip:"Fessiers serrés, pas de creux lombaire."},
-      {n:"Planche latérale",g:"Abdos",s:3,r:"20-30s/côté",rest:45,c:"Obliques + carré des lombes",chrono:true,
-       alt:["Planche latérale genou au sol"],tip:"Corps aligné, hanche haute. Si la séance est trop longue, garde-la pour un autre jour."}
+       tip:"Buste légèrement penché en avant, pousse avec l'extérieur de la hanche. Enchaîne directement les adducteurs, puis repos."},
+      {n:"Adducteurs (machine)",g:"Jambes",s:3,r:"15-20",rest:60,c:"Adducteurs — stabilité interne du genou",ss:true,
+       alt:["Adduction debout poulie"],
+       tip:"Amplitude progressive, ne force jamais l'écartement à froid. Souvent la même machine que les abducteurs : tu changes juste les coussins."}
     ]},
   { id:"DOS", nom:"Dos + biceps", icone:"🔻", jour:"Jour 3",
-    resume:"Un tirage vertical, deux horizontaux à trajectoires différentes, l'arrière d'épaule, puis les biceps.",
-    echauffement:"5 min rameur ou vélo léger · rotations d'épaules · 1-2 séries légères de face pull · 1 série d'approche au tirage vertical.",
+    resume:"Un tirage vertical, deux horizontaux à trajectoires différentes, l'arrière d'épaule, puis les biceps : spider curl et curl marteau.",
+    echauffement:"5 min rameur ou vélo léger · rotations d'épaules · 1-2 séries légères de reverse pec deck · 1 série d'approche au tirage vertical.",
     exos:[
       {n:"Tirage vertical poulie",g:"Dos",s:4,r:"10-12",rest:90,c:"Grand dorsal — largeur (plan vertical)",
        alt:["Traction assistée (machine)","Tirage vertical prise serrée"],
@@ -798,32 +863,38 @@ const PROGRAMME = [
       {n:"Tirage horizontal prise large",g:"Dos",s:3,r:"12",rest:60,c:"Haut du dos + trapèze moyen — coudes écartés",
        alt:["Rowing T-bar","Tirage bras tendus poulie"],
        tip:"Barre large, coudes ouverts à 90°, tire vers le haut du ventre. Trajectoire différente du rowing, c'est le but."},
-      {n:"Face pull poulie",g:"Épaules",s:3,r:"15",rest:60,c:"Deltoïde postérieur + rotateurs externes",star:true,
-       alt:["Oiseau (deltoïde postérieur)","Reverse pec deck"],
-       tip:"Corde au visage, tire vers le front, coudes hauts, reste léger. Ton exo santé d'épaule de conducteur."},
-      {n:"Curl barre EZ",g:"Biceps",s:4,r:"12",rest:60,c:"Biceps — les deux chefs",
-       alt:["Curl machine","Curl haltères"],
-       tip:"Coudes collés et parfaitement immobiles. Aucun balancier du buste."},
+      {n:"Reverse pec deck",g:"Épaules",s:3,r:"15",rest:60,c:"Deltoïde postérieur + haut du dos",star:true,
+       alt:["Face pull poulie","Oiseau (deltoïde postérieur)"],
+       tip:"Bras presque tendus, serre les omoplates en fin de mouvement, charge modérée. Ton exo santé d'épaule de conducteur."},
+      {n:"Spider curl",g:"Biceps",s:4,r:"12",rest:60,c:"Biceps — contraction maximale, le pic du bras",
+       alt:["Curl machine","Curl barre EZ","Curl haltères"],
+       tip:"Poitrine contre le banc incliné, bras pendants à la verticale. Monte et serre 1 seconde en haut : aucun élan possible, donc charge plus légère qu'au curl debout."},
       {n:"Curl marteau",g:"Biceps",s:3,r:"12",rest:60,c:"Brachial + brachio-radial — l'épaisseur du bras",
        alt:["Curl marteau poulie (corde)"],
        tip:"Prise neutre, coudes fixes. Le brachial, sous le biceps, le pousse vers le haut."}
     ]},
   { id:"EPAULES", nom:"Épaules", icone:"🎯", jour:"Jour 4",
-    resume:"Un faisceau par exercice, plus le trapèze. La séance la plus courte : tes épaules travaillent déjà le jour pec.",
-    echauffement:"5 min cardio léger · rotations d'épaules et de coiffe · 1-2 séries très légères d'élévations latérales · 1 série d'approche au développé épaules.",
+    resume:"Centrée sur le deltoïde latéral (la largeur), le seul faisceau que le reste de la semaine ne touche pas. L'avant d'épaule pousse déjà le jour pec, l'arrière tire le jour dos : développé réduit, arrière en complément. Mollets en fin de séance.",
+    echauffement:"5 min cardio léger · rotations d'épaules et de coiffe · 1 série très légère d'élévations latérales · 1 série d'approche au développé épaules.",
     exos:[
-      {n:"Développé épaules haltères",g:"Épaules",s:4,r:"10-12",rest:90,c:"Deltoïde antérieur — poussée verticale",
-       alt:["Développé épaules (machine)","Développé militaire (barre)"],
-       tip:"Assis, dos plaqué au dossier, abdos gainés, pas de cambrure. Descends jusqu'aux oreilles."},
-      {n:"Élévations latérales haltères",g:"Épaules",s:4,r:"15",rest:60,c:"Deltoïde latéral — la largeur d'épaule",
-       alt:["Élévations latérales poulie","Élévations latérales (machine)"],
-       tip:"Coudes légèrement fléchis, stop à l'horizontale, descente lente. Si les trapèzes montent, c'est trop lourd. La version poulie est en alternative, pas en plus."},
-      {n:"Oiseau (deltoïde postérieur)",g:"Épaules",s:4,r:"15",rest:60,c:"Deltoïde postérieur",
-       alt:["Reverse pec deck","Face pull poulie"],
-       tip:"Buste penché, pouces vers le sol, monte sur les côtés. Pense arrière de l'épaule, surtout pas trapèzes."},
-      {n:"Haussements d'épaules (shrugs)",g:"Dos",s:3,r:"15",rest:60,c:"Trapèze supérieur",
+      {n:"Élévations latérales haltères",g:"Épaules",s:4,r:"12-15",rest:60,c:"Deltoïde latéral — la largeur, en premier car c'est la priorité",
+       alt:["Élévations latérales (machine)","Élévations latérales poulie"],
+       tip:"Coudes légèrement fléchis, stop à l'horizontale, descente lente sur 3 secondes. Si les trapèzes montent, c'est trop lourd."},
+      {n:"Développé épaules (machine)",g:"Épaules",s:3,r:"10-12",rest:90,c:"Deltoïde antérieur — déjà bien chargé le jour pec, donc 3 séries suffisent",
+       alt:["Développé épaules haltères","Développé militaire (barre)"],
+       tip:"Poignées à hauteur d'épaules, dos plaqué, abdos gainés. Machine pour ménager l'articulation, pas de cambrure."},
+      {n:"Élévations latérales poulie",g:"Épaules",s:3,r:"15",rest:45,c:"Deltoïde latéral — 2e angle, tension en bas du mouvement",
+       alt:["Élévations latérales (machine)"],
+       tip:"Un bras à la fois, poulie basse côté opposé. La poulie garde la tension là où l'haltère n'en a plus : complète, ne remplace pas."},
+      {n:"Oiseau (deltoïde postérieur)",g:"Épaules",s:3,r:"15",rest:60,c:"Deltoïde postérieur — complète le reverse pec deck du jour dos",
+       alt:["Face pull poulie","Reverse pec deck"],
+       tip:"Buste penché, pouces vers le sol, monte sur les côtés. Le face pull en alternative ajoute la coiffe : excellent pour l'épaule de conducteur."},
+      {n:"Haussements d'épaules (shrugs)",g:"Dos",s:3,r:"12-15",rest:60,c:"Trapèze supérieur",
        alt:["Farmer's walk"],
-       tip:"Monte droit vers les oreilles, pause en haut. Les rotations d'épaules n'apportent rien."}
+       tip:"Monte droit vers les oreilles, pause en haut. Les rotations d'épaules n'apportent rien."},
+      {n:"Mollets debout (machine)",g:"Mollets",s:3,r:"15-20",rest:45,c:"Gastrocnémiens — ici car la séance jambes était trop longue",
+       alt:["Mollets à la presse","Mollets assis (machine)"],
+       tip:"Amplitude complète, pause 1 seconde en haut et en bas. Si les épaules sont cuites, prends la presse : rien sur les trapèzes."}
     ]},
   { id:"CORE", nom:"Bloc Core", icone:"🧱", jour:"En option",
     resume:"S'ajoute à la séance en cours. Priorité anti-extension pour protéger le bas du dos.",
@@ -874,7 +945,7 @@ function nextSeance(){
 function openTemplates(){
   const suiv=nextSeance();
   openSheet(`<h3>Programme — split 4 jours</h3>
-    <p style="color:var(--muted);font-size:13px;margin:-6px 0 6px;line-height:1.5">Pec → Jambes → Dos/Biceps → Épaules, dans cet ordre. Semaine à 3 séances : saute les épaules, jamais les jambes ni le dos.</p>
+    <p style="color:var(--muted);font-size:13px;margin:-6px 0 6px;line-height:1.5">Pec → Jambes → Dos/Biceps → Épaules, dans cet ordre. Semaine à 3 séances : saute les épaules, jamais les jambes ni le dos, et ajoute alors 3 séries d'élévations latérales en fin de séance pec.</p>
     <div class="nextbox">Prochaine séance conseillée : <b>${labelSeance(suiv)}</b></div>
     ${PROGRAMME.map(t=>`
       <div class="card ${t.id===suiv?"next":""}" style="margin-bottom:10px">
@@ -889,6 +960,7 @@ function openTemplates(){
       </div>`).join("")}
     <div style="color:var(--faint);font-size:12px;line-height:1.5;padding:4px 2px 0">
       <b>Double progression :</b> quand tu atteins le haut de la fourchette sur toutes les séries, monte la charge et redescends dans le bas.<br>
+      <b>Dégressif :</b> bouton « ↘ Dégressif » sous l'exercice, ou touche le numéro d'une série. Charge −20 à −30 %, zéro repos, jusqu'à l'échec. Une seule par exercice suffit, sur la dernière série. Elle ne compte pas pour le conseil de montée de charge.<br>
       <b>Cardio :</b> vélo ou marche inclinée, après la muscu ou un jour à part — jamais avant.<br>
       <b>Alternative :</b> utilise-la seulement si la machine est prise — elle est loggée séparément pour ne pas fausser ta courbe.</div>`);
 }
@@ -902,9 +974,10 @@ function applyTemplate(id){
     const exo=ensureExercise(x.n,x.g);
     if(s.entries.some(e=>e.exerciseId===exo.id))return;
     const last=lastPerf(exo.id);
+    const ref=last?(mainSets(last.sets).length?mainSets(last.sets):last.sets):[];
     const sets=[];
     for(let i=0;i<x.s;i++){
-      const p = last ? (last.sets[i]||last.sets[last.sets.length-1]) : null;
+      const p = ref.length ? (ref[i]||ref[ref.length-1]) : null;
       sets.push({weight:p?p.weight:"", reps:p?p.reps:"", done:false});
     }
     s.entries.push({exerciseId:exo.id, sets, note:"", focus:x.c, titulaire:x.n,
@@ -936,14 +1009,16 @@ function swapAlt(ei,i){
   e.exerciseId=exo.id;
   e.isAlt = norm(name)!==norm(e.titulaire||name);
   const last=lastPerf(exo.id);
-  e.sets=e.sets.map((st,k)=>{ const p=last?(last.sets[k]||last.sets[last.sets.length-1]):null;
-    return {weight:p?p.weight:"", reps:p?p.reps:"", done:false}; });
+  const ref=last?(mainSets(last.sets).length?mainSets(last.sets):last.sets):[];
+  e.sets=e.sets.map((st,k)=>{ const p=ref.length?(ref[k]||ref[ref.length-1]):null;
+    const n={weight:p?p.weight:"", reps:p?p.reps:"", done:false}; if(st.drop){ n.drop=true; if(p) n.weight=dropWeight(p.weight); }
+    return n; });
   save(); closeSheet(); renderSeance(); toast(e.isAlt?"Alternative chargée (courbe séparée)":"Retour au titulaire");
 }
 function progressHint(e){
   if(!e.target||e.chrono) return "";
   const m=(e.target.r.match(/(\d+)(?!.*\d)/)||[])[1]; if(!m) return "";
-  const done=e.sets.filter(x=>x.done && x.reps);
+  const done=e.sets.filter(x=>x.done && x.reps && !x.drop);  // les dégressives ne comptent pas
   if(done.length>=e.target.s && done.every(x=>x.reps>=+m))
     return `<div class="hint">🔼 Haut de fourchette atteint sur toutes les séries — monte la charge la prochaine fois.</div>`;
   return "";
@@ -1032,6 +1107,9 @@ function renderSet(){
     </div>
     <div class="set-item"><div class="lab">Importer<small>Remplace les données actuelles</small></div>
       <label class="btn ghost" style="width:auto;padding:10px 14px;margin:0">Choisir…<input type="file" accept=".json,application/json" style="display:none" onchange="importData(event)"></label>
+    </div>
+    <div class="set-item"><div class="lab">Sauvegarde du 2 nov.<small>Intégrée à l'appli · séances jusqu'au 31 oct.</small></div>
+      <button class="btn ghost" style="width:auto;padding:10px 14px" onclick="restoreBackup()">Restaurer</button>
     </div>
   </div>
   <div class="set-block">
@@ -1181,6 +1259,7 @@ let toastT=null;
 function toast(msg,cls){ const t=document.getElementById("toast"); t.textContent=msg; t.className="toast show"+(cls?" "+cls:""); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2200); }
 
 /* ---------------- Démarrage ---------------- */
+const BACKUP = {"exercises":[{"id":"mv3ssu00bjroo","name":"Développé couché (barre)","group":"Pectoraux","tips":"Omoplates serrées et basses, pieds ancrés au sol. Coudes à 45°, jamais ouverts à 90° : c'est l'épaule qui paie.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu001fgzp","name":"Développé incliné (barre)","group":"Pectoraux","tips":"30° suffisent. Au-delà, ce sont les épaules qui prennent le travail à la place du haut des pecs.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00d0577","name":"Développé décliné (barre)","group":"Pectoraux","tips":"Amplitude plus courte donc charge plus lourde. Fais-toi assurer, la sortie de barre est piégeuse.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00odkt1","name":"Développé couché haltères","group":"Pectoraux","tips":"Descends plus bas qu'à la barre pour étirer le pec. Ne cogne pas les haltères l'un contre l'autre en haut.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00ylph7","name":"Développé incliné haltères","group":"Pectoraux","tips":"Poignets toujours au-dessus des coudes, trajectoire légèrement convergente. Banc à 30° maximum.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu003ehl6","name":"Chest press (machine)","group":"Pectoraux","tips":"Règle le siège pour que les poignées soient à hauteur de poitrine. Omoplates collées au dossier.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00p404i","name":"Développé incliné (machine)","group":"Pectoraux","tips":"Excellent en 2e exercice : tu pousses lourd sans avoir à gérer l'équilibre.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00q50jj","name":"Pec deck / Butterfly","group":"Pectoraux","tips":"Coudes légèrement fléchis et fixes. Pense à rapprocher les coudes, pas les mains.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00zp7zs","name":"Écarté haltères incliné","group":"Pectoraux","tips":"Mouvement d'étirement, pas de force. Léger, lent, grande amplitude, coudes jamais tendus.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu002sb9e","name":"Écarté poulie haute (crossover)","group":"Pectoraux","tips":"Croise légèrement les mains en fin de mouvement pour aller chercher la contraction complète.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00al2v6","name":"Écarté poulie basse","group":"Pectoraux","tips":"Monte en diagonale vers le haut : cible le haut des pecs, complémentaire du crossover haut.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00f97v2","name":"Pull-over haltère","group":"Pectoraux","tips":"Bassin bas, ouvre la cage thoracique. Étire sans jamais forcer sur l'épaule.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00z2o4d","name":"Dips (pectoraux)","group":"Pectoraux","tips":"Buste penché en avant et coudes ouverts. Buste droit, ce sont les triceps qui prennent.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00ulstu","name":"Pompes","group":"Pectoraux","tips":"Corps gainé d'une seule pièce, mains sous les épaules, coudes à 45°. Bassin ni haut ni affaissé.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00lp39j","name":"Tractions","group":"Dos","tips":"Baisse les épaules avant de tirer. Menton au-dessus de la barre sans coup de reins.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu004fxz2","name":"Traction assistée (machine)","group":"Dos","tips":"Retire 5 kg d'assistance dès que tu passes 10 répétitions propres.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00j32m2","name":"Tirage vertical poulie","group":"Dos","tips":"Vers le haut de la poitrine, buste très légèrement incliné. Jamais derrière la nuque.","prise":"Pronation large","auto":true,"createdAt":1791721635552},{"id":"mv3ssu009yd0l","name":"Tirage vertical prise serrée","group":"Dos","tips":"Prise serrée neutre : plus de dorsal bas, moins de contrainte sur l'épaule.","prise":"Neutre serrée","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00kv8zj","name":"Tirage horizontal poulie","group":"Dos","tips":"Buste fixe, ne rame pas avec le dos. Range les omoplates et marque un temps d'arrêt.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00hnntt","name":"Rowing barre","group":"Dos","tips":"Dos plat à 45°, barre vers le nombril. Si tu te redresses pour tirer, c'est trop lourd.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00u2hb9","name":"Rowing haltère (un bras)","group":"Dos","tips":"Coude vers la hanche et non vers l'épaule. Commence toujours par le côté faible.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu001u54e","name":"Rowing T-bar","group":"Dos","tips":"Prends la version poitrine appuyée si elle existe : les lombaires ne subissent plus rien.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00482jg","name":"Rowing machine (Hammer)","group":"Dos","tips":"Tire avec les coudes, pas avec les mains. Laisse les omoplates s'écarter en position basse.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00nf6xe","name":"Tirage bras tendus poulie","group":"Dos","tips":"Bras quasi tendus et coudes verrouillés : c'est le dorsal qui travaille, les biceps ne participent pas.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00ds304","name":"Soulevé de terre","group":"Dos","tips":"Barre collée aux tibias, dos plat, pousse le sol avec les jambes. Technique avant charge, sans exception.","prise":"Mixte","auto":true,"createdAt":1791721635552},{"id":"mv3ssu0056kkd","name":"Haussements d'épaules (shrugs)","group":"Dos","tips":"Monte droit vers les oreilles avec une pause en haut. Les rotations d'épaules n'apportent rien.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00nh4ak","name":"Hyperextensions (lombaires)","group":"Dos","tips":"Monte jusqu'à l'alignement du corps, pas au-delà. Mouvement lent, aucun à-coup.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00xql1h","name":"Développé militaire (barre)","group":"Épaules","tips":"Gaine les abdos pour ne pas cambrer. Trajectoire devant le visage, puis passe la tête sous la barre.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu000iy3e","name":"Développé épaules haltères","group":"Épaules","tips":"Descends jusqu'aux oreilles. Coudes légèrement en avant plutôt que dans l'axe du corps.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00o26sf","name":"Développé épaules (machine)","group":"Épaules","tips":"Règle le siège pour que les poignées arrivent à hauteur d'épaules, pas plus haut.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00ttcl2","name":"Développé Arnold","group":"Épaules","tips":"La rotation des poignets se fait pendant la montée, jamais avant. Reste léger.","prise":"Supination → pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00nylmw","name":"Élévations latérales haltères","group":"Épaules","tips":"Stop à l'horizontale, coudes légèrement fléchis, descente lente sur 3 secondes.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00hdpcm","name":"Élévations latérales poulie","group":"Épaules","tips":"La poulie maintient la tension en position basse, là où les haltères n'en ont plus aucune.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00uac0a","name":"Élévations latérales (machine)","group":"Épaules","tips":"Pousse avec les coudes contre les coussins, pas avec les mains.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00fyems","name":"Élévations frontales","group":"Épaules","tips":"Souvent superflu si tu fais déjà du développé. Si tu en fais, reste très léger.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00zf4v4","name":"Oiseau (deltoïde postérieur)","group":"Épaules","tips":"Buste penché, pouces vers le sol. Pense arrière de l'épaule, surtout pas trapèzes.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00p1ry6","name":"Reverse pec deck","group":"Épaules","tips":"Bras presque tendus, serre les omoplates en fin de mouvement. Charge modérée.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00axh05","name":"Face pull poulie","group":"Épaules","tips":"Corde vers le front, coudes hauts. Exercice santé d'épaule : léger et fréquent plutôt que lourd.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu0025fc6","name":"Rowing menton","group":"Épaules","tips":"Ne monte pas les coudes au-dessus des pectoraux, au-delà tu pinces l'articulation.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00s62zk","name":"Curl barre EZ","group":"Biceps","tips":"Coudes collés au corps et parfaitement immobiles. Aucun balancier du buste.","prise":"Supination","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00qj96l","name":"Curl haltères","group":"Biceps","tips":"Tourne le poignet vers l'extérieur en montant pour finir la contraction du biceps.","prise":"Supination","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00fgugh","name":"Curl marteau","group":"Biceps","tips":"Prise neutre : cible le brachial, le muscle qui pousse le biceps vers le haut et épaissit le bras.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00372h6","name":"Curl incliné haltères","group":"Biceps","tips":"Bras en arrière du buste : le long chef travaille étiré. C'est tout l'intérêt de l'exercice.","prise":"Supination","auto":true,"createdAt":1791721635552},{"id":"mv3ssu002bcm9","name":"Curl pupitre (preacher)","group":"Biceps","tips":"Ne tends pas complètement le bras en bas sous charge lourde, le coude n'aime pas.","prise":"Supination","auto":true,"createdAt":1791721635552},{"id":"mv3ssu004zdf8","name":"Curl poulie","group":"Biceps","tips":"Tension constante du début à la fin. Parfait en dernier exercice de bras.","prise":"Supination","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00vxfmb","name":"Curl concentration","group":"Biceps","tips":"Coude calé contre la cuisse. Cherche le pic de contraction, pas la charge.","prise":"Supination","auto":true,"createdAt":1791721635552},{"id":"mv3ssu002uath","name":"Curl machine","group":"Biceps","tips":"Idéal pour aller à l'échec en sécurité en fin de séance.","prise":"Supination","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00h31gq","name":"Extension poulie corde","group":"Triceps","tips":"Écarte la corde en fin de mouvement et marque un temps. Coudes fixes le long du corps.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00p3j0e","name":"Extension poulie barre","group":"Triceps","tips":"Prise en pronation, coudes verrouillés. Ne laisse pas les épaules avancer.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00u6flu","name":"Extension poulie prise inversée","group":"Triceps","tips":"Prise en supination : cible le chef médial, presque toujours négligé.","prise":"Supination","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00n64rk","name":"Barre au front (skull crusher)","group":"Triceps","tips":"Descends derrière le front plutôt que dessus : la tension ne retombe jamais.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00gpn0u","name":"Extension nuque haltère","group":"Triceps","tips":"Bras au-dessus de la tête, donc long chef en étirement. Coudes serrés vers l'avant.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu009tr3b","name":"Dips (triceps)","group":"Triceps","tips":"Buste droit et coudes serrés. Descends jusqu'à l'angle droit, pas plus bas.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu006a8va","name":"Kickback haltère","group":"Triceps","tips":"Charge légère obligatoire. Verrouille le coude tendu une seconde en haut.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00hubeh","name":"Triceps machine","group":"Triceps","tips":"Dos bien plaqué au dossier pour isoler correctement le bras.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00gblm8","name":"Pompes diamant","group":"Triceps","tips":"Mains en losange sous la poitrine, coudes rasant le corps.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu001sh2g","name":"Curl poignet","group":"Avant-bras","tips":"Amplitude complète : laisse la barre rouler jusqu'aux doigts en bas, puis referme.","prise":"Supination","auto":true,"createdAt":1791721635552},{"id":"mv3ssu001i3bw","name":"Extension poignet","group":"Avant-bras","tips":"Très léger. C'est l'équilibre du coude qui se joue ici, la prévention de l'épicondylite.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00vozdz","name":"Farmer's walk","group":"Avant-bras","tips":"Gainage debout complet : épaules basses, buste droit, aucun balancement.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu0066irz","name":"Squat (barre)","group":"Jambes","tips":"Genoux dans l'axe des pieds, descente contrôlée. Profondeur selon ce que ton genou accepte, sans rebond en bas.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu009iacd","name":"Squat guidé (Smith)","group":"Jambes","tips":"Pieds légèrement avancés. La machine impose la trajectoire, sois donc strict sur la profondeur.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00xle98","name":"Presse à cuisses","group":"Jambes","tips":"Ne décolle jamais le bas du dos du dossier et ne verrouille pas les genoux en haut.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00ic6kg","name":"Hack squat","group":"Jambes","tips":"Dos plaqué, pieds à mi-plateau. Amplitude confortable, jamais douloureuse.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00huff6","name":"Leg extension (quadriceps)","group":"Jambes","tips":"Contrôlé, sans à-coup, sans hyperextension violente. À placer après le travail des ischios.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00p50ox","name":"Leg curl assis (ischios)","group":"Jambes","tips":"Genou fléchi : travail différent du soulevé roumain. Contrôle surtout la descente.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00w8vbn","name":"Leg curl allongé (ischios)","group":"Jambes","tips":"Bassin plaqué au banc. Aucun coup de reins pour faire monter la charge.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00ytl46","name":"Fentes haltères","group":"Jambes","tips":"Genou arrière vers le sol, buste droit. Pose contrôlée, aucun rebond.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu004vucl","name":"Fentes bulgares","group":"Jambes","tips":"Pied arrière surélevé, poids sur la jambe avant. Redoutable, commence au poids du corps.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu002adst","name":"Soulevé de terre roumain","group":"Jambes","tips":"Fessiers en arrière, jambes quasi tendues, dos plat. Tu dois sentir les ischios tirer, pas le bas du dos.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu000cngg","name":"Adducteurs (machine)","group":"Jambes","tips":"Amplitude progressive, ne force jamais l'écartement à froid.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00ydpdu","name":"Abducteurs (machine)","group":"Jambes","tips":"Buste légèrement penché en avant pour mieux cibler le moyen fessier.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu008quj0","name":"Goblet squat","group":"Jambes","tips":"Haltère contre la poitrine : le buste reste droit tout seul. Le meilleur exercice pour apprendre la descente.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00kap6v","name":"Hip thrust","group":"Fessiers","tips":"Menton rentré, pousse dans les talons, serre une seconde en haut. Jamais de cambrure lombaire.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00emowg","name":"Kickback fessier poulie","group":"Fessiers","tips":"Jambe tendue, mouvement venant de la hanche. Ne cambre pas pour aller plus loin.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00a3olf","name":"Extension de hanche (machine)","group":"Fessiers","tips":"Verrouille le buste, ne compense pas avec le bas du dos.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00j84q5","name":"Pont fessier","group":"Fessiers","tips":"Version au sol du hip thrust, parfaite en échauffement avant les jambes.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00bhomf","name":"Abduction debout poulie","group":"Fessiers","tips":"Buste fixe, jambe tendue sur le côté, sans se pencher pour gagner de l'amplitude.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu007bp50","name":"Mollets debout (machine)","group":"Mollets","tips":"Jambe tendue donc gastrocnémiens. Amplitude complète avec une pause d'une seconde en haut.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu002iw7j","name":"Mollets assis (machine)","group":"Mollets","tips":"Genou fléchi donc soléaire, le muscle d'endurance. Séries longues, 15 à 20 répétitions.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu001ujs7","name":"Mollets à la presse","group":"Mollets","tips":"Avant-pieds sur le bord du plateau, descends le talon au maximum.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00kd0wy","name":"Crunch au sol","group":"Abdos","tips":"Décolle seulement les omoplates, expire en montant. Ne tire jamais sur la nuque.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00nt5o6","name":"Crunch poulie","group":"Abdos","tips":"À genoux, enroule le buste vers le bassin. C'est l'exercice d'abdos où la charge progresse.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00nokre","name":"Crunch machine","group":"Abdos","tips":"Contrôle surtout la remontée, ne laisse pas la charge te tirer en arrière.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu006rqpb","name":"Relevé de jambes suspendu","group":"Abdos","tips":"Enroule le bassin vers le haut, pas seulement les jambes. Aucun élan.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu006cm7x","name":"Relevé de genoux (chaise romaine)","group":"Abdos","tips":"Dos plaqué au dossier, remonte les genoux vers la poitrine lentement.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu007lork","name":"Gainage (planche)","group":"Abdos","tips":"Fessiers serrés, pas de creux lombaire. La qualité de position prime sur la durée.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00sm8t1","name":"Planche latérale","group":"Abdos","tips":"Corps parfaitement aligné, hanche haute. Respire normalement, ne bloque pas.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu0053i6b","name":"Russian twist","group":"Abdos","tips":"La rotation vient du tronc et pas des bras. Reste léger, contrôle l'amplitude.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00sj5r1","name":"Roulette abdominale","group":"Abdos","tips":"Exercice anti-cambrure : si le bas du dos creuse, c'est que tu es allé trop loin.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu008riiw","name":"Mountain climbers","group":"Abdos","tips":"Bassin stable, aucun rebond. C'est du gainage dynamique, pas une course.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00vs1v4","name":"Tapis de course","group":"Cardio","tips":"Incline à 8-12 % et marche vite plutôt que courir : même dépense, zéro impact sur le genou.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00b6u53","name":"Vélo","group":"Cardio","tips":"Selle réglée pour que la jambe soit presque tendue en bas. L'option la plus douce pour les articulations.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00m9kfj","name":"Vélo elliptique","group":"Cardio","tips":"Buste droit, pousse aussi avec les jambes et pas seulement avec les bras.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00llwh3","name":"Rameur","group":"Cardio","tips":"Ordre strict : jambes, buste, bras. Puis l'inverse au retour. 60 % du travail vient des jambes.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00ahibd","name":"Escalier (Climb)","group":"Cardio","tips":"Ne t'appuie pas sur les barres, ça divise l'effort par deux.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00jzagi","name":"Air bike / Assault bike","group":"Cardio","tips":"Format intervalles : 20 secondes fort, 40 secondes calme. Inutile d'y rester 30 minutes.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00br45v","name":"Corde à sauter","group":"Cardio","tips":"Impact répété au sol : à limiter si le genou est sensible.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00bfg0b","name":"Kettlebell swing","group":"Fonctionnel","tips":"C'est une poussée de hanche, pas un mouvement d'épaules. La kettlebell monte toute seule.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00tk9m0","name":"Thruster","group":"Fonctionnel","tips":"Enchaîne squat et poussée sans temps mort. Très exigeant sur le plan cardio.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00zkq4f","name":"Épaulé (clean)","group":"Fonctionnel","tips":"Technique avant charge. Fais-toi corriger avant de monter les poids.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00guw1w","name":"Arraché (snatch)","group":"Fonctionnel","tips":"Le mouvement le plus technique de la salle. Barre à vide pendant plusieurs semaines.","prise":"Pronation large","auto":true,"createdAt":1791721635552},{"id":"mv3ssu0091cj6","name":"Battle rope","group":"Fonctionnel","tips":"Reste en position basse, tronc gainé. 20 à 30 secondes par série suffisent.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00tio56","name":"Box jump","group":"Fonctionnel","tips":"Réception à fort impact : à éviter si le genou est fragile, privilégie le step-up.","prise":"Sans prise","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00ke7va","name":"TRX rowing","group":"Fonctionnel","tips":"Plus tu avances les pieds, plus c'est dur. Corps aligné d'une seule pièce.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00ukcf8","name":"Burpees","group":"Fonctionnel","tips":"Pose les mains avant de lancer les pieds en arrière, sans effondrer le bassin.","prise":"Pronation","auto":true,"createdAt":1791721635552},{"id":"mv3ssu00olfvo","name":"Wall ball","group":"Fonctionnel","tips":"Squat complet puis lancer dans le même élan. Reçois le ballon en amortissant.","prise":"Neutre","auto":true,"createdAt":1791721635552},{"id":"mvih15dv383cq","name":"Tirage horizontal prise large","group":"Dos","tips":"Prise large et coudes écartés : ça vise le haut du dos et le trapèze moyen, pas le grand dorsal.","prise":"Pronation large","auto":true,"createdAt":1792608860804},{"id":"mvlds7hx04zf1","name":"Extension triceps au-dessus de la tête (poulie)","group":"Triceps","tips":"Dos à la poulie, corde derrière la tête, coudes serrés vers l'avant. Même cible que l'extension nuque : le long chef étiré.","prise":"Neutre","auto":true,"createdAt":1792784803320}],"sessions":[{"id":"mv5kqxcvdmvxe","date":"2026-10-12","createdAt":1791829042015,"note":"","entries":[{"exerciseId":"mv3ssu00xle98","sets":[{"weight":40,"reps":10,"done":true},{"weight":50,"reps":11,"done":true},{"weight":60,"reps":10,"done":true}],"note":"","focus":"Quadriceps + fessiers — pieds hauts sur le plateau","titulaire":"Presse à cuisses","target":{"s":4,"r":"12","rest":120},"ptip":"Pieds hauts et écartés : plus de fessiers, moins de cisaillement sur le genou. Amplitude confortable, dos collé au dossier.","alt":["Hack squat","Presse à cuisses unilatérale"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00huff6","sets":[{"weight":25,"reps":20,"done":true},{"weight":25,"reps":20,"done":true},{"weight":30,"reps":20,"done":true}],"note":"","focus":"Quadriceps isolé — charge légère, amplitude contrôlée","titulaire":"Leg extension (quadriceps)","target":{"s":2,"r":"15","rest":60},"ptip":"Léger, lent, sans à-coup et sans hyperextension. Toujours après le leg curl.","alt":["Presse à cuisses unilatérale"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00ydpdu","sets":[{"weight":20,"reps":20,"done":true},{"weight":20,"reps":20,"done":true},{"weight":30,"reps":20,"done":true}],"note":"","focus":"Moyen fessier — empêche le genou de rentrer","titulaire":"Abducteurs (machine)","target":{"s":3,"r":"15","rest":60},"ptip":"Buste légèrement penché en avant, pousse avec l'extérieur de la hanche.","alt":["Abduction debout poulie"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00ic6kg","sets":[{"weight":10,"reps":10,"done":true},{"weight":20,"reps":10,"done":true},{"weight":20,"reps":10,"done":true}],"note":""},{"exerciseId":"mv3ssu004vucl","sets":[{"weight":10,"reps":20,"done":true},{"weight":10,"reps":20,"done":true}],"note":""},{"exerciseId":"mv3ssu00w8vbn","sets":[{"weight":15,"reps":20,"done":true},{"weight":20,"reps":20,"done":true},{"weight":20,"reps":17,"done":true}],"note":"10 D 10 G "}],"seance":"JAMBES","echauffement":"5-8 min vélo · 1-2 séries légères de leg curl AVANT de charger les quadriceps · 1 série d'approche à la presse."},{"id":"mvih15dr3gxj3","date":"2026-10-21","createdAt":1792608860800,"note":"","entries":[{"exerciseId":"mv3ssu00j32m2","sets":[{"weight":35,"reps":11,"done":true},{"weight":35,"reps":10,"done":true},{"weight":40,"reps":10,"done":true}],"note":"","focus":"Grand dorsal — largeur (plan vertical)","titulaire":"Tirage vertical poulie","target":{"s":4,"r":"10-12","rest":90},"ptip":"Descends les épaules avant de tirer, barre vers le haut de la poitrine, jamais derrière la nuque.","alt":["Traction assistée (machine)","Tirage vertical prise serrée"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00482jg","sets":[{"weight":15,"reps":10,"done":true},{"weight":17.5,"reps":10,"done":true},{"weight":20,"reps":8,"done":true},{"weight":10,"reps":5,"done":true},{"weight":5,"reps":4,"done":true}],"note":"","focus":"Grand dorsal + rhomboïdes — coudes serrés","titulaire":"Rowing machine (Hammer)","target":{"s":4,"r":"10-12","rest":90},"ptip":"Poitrine contre l'appui, coudes le long du corps : le bas du dos ne travaille pas.","alt":["Tirage horizontal poulie","Rowing haltère (un bras)"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mvih15dv383cq","sets":[{"weight":25,"reps":10,"done":true},{"weight":30,"reps":10,"done":true},{"weight":35,"reps":10,"done":true}],"note":"","focus":"Haut du dos + trapèze moyen — coudes écartés","titulaire":"Tirage horizontal prise large","target":{"s":3,"r":"12","rest":60},"ptip":"Barre large, coudes ouverts à 90°, tire vers le haut du ventre. Trajectoire différente du rowing, c'est le but.","alt":["Rowing T-bar","Tirage bras tendus poulie"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00p1ry6","sets":[{"weight":11.25,"reps":11,"done":true},{"weight":12.5,"reps":10,"done":true},{"weight":15,"reps":5,"done":true}],"note":"","focus":"Deltoïde postérieur + rotateurs externes","titulaire":"Face pull poulie","target":{"s":3,"r":"15","rest":60},"ptip":"Corde au visage, tire vers le front, coudes hauts, reste léger. Ton exo santé d'épaule de conducteur.","alt":["Oiseau (deltoïde postérieur)","Reverse pec deck"],"ordre":false,"ss":false,"chrono":false,"isAlt":true},{"exerciseId":"mv3ssu002uath","sets":[{"weight":20,"reps":8,"done":true},{"weight":15,"reps":10,"done":true},{"weight":15,"reps":7,"done":true},{"weight":10,"reps":5,"done":true}],"note":"","focus":"Biceps — les deux chefs","titulaire":"Curl barre EZ","target":{"s":4,"r":"12","rest":60},"ptip":"Coudes collés et parfaitement immobiles. Aucun balancier du buste.","alt":["Curl machine","Curl haltères"],"ordre":false,"ss":false,"chrono":false,"isAlt":true}],"seance":"DOS","echauffement":"5 min rameur ou vélo léger · rotations d'épaules · 1-2 séries légères de face pull · 1 série d'approche au tirage vertical."},{"id":"mvjvsxd9pssaj","date":"2026-10-22","createdAt":1792694137582,"note":"","entries":[{"exerciseId":"mv3ssu00w8vbn","sets":[{"weight":15,"reps":16,"done":true}],"note":"En dernier douleur genoux surtout droit ","focus":"Ischios — flexion du genou","titulaire":"Leg curl allongé (ischios)","target":{"s":4,"r":"12","rest":90},"ptip":"Toujours en 1er : il stabilise le genou avant les quadriceps. Contrôle la descente, aucun à-coup.","alt":["Leg curl assis (ischios)"],"ordre":true,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00xle98","sets":[{"weight":40,"reps":10,"done":true},{"weight":50,"reps":11,"done":true},{"weight":60,"reps":10,"done":true}],"note":"Pendulum ","focus":"Quadriceps + fessiers — pieds hauts sur le plateau","titulaire":"Presse à cuisses","target":{"s":4,"r":"12","rest":120},"ptip":"Pieds hauts et écartés : plus de fessiers, moins de cisaillement sur le genou. Amplitude confortable, dos collé au dossier.","alt":["Hack squat","Presse à cuisses unilatérale"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00kap6v","sets":[{"weight":80,"reps":10,"done":true},{"weight":80,"reps":10,"done":true},{"weight":90,"reps":5,"done":true},{"weight":80,"reps":4,"done":true},{"weight":40,"reps":10,"done":true}],"note":"","focus":"Grand fessier — extension de hanche","titulaire":"Hip thrust","target":{"s":3,"r":"12","rest":120},"ptip":"Menton rentré, pousse dans les talons, serre 1 seconde en haut. Mouvement qui encaisse lourd : charge sans crainte.","alt":["Extension de hanche (machine)","Pont fessier"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00huff6","sets":[{"weight":25,"reps":25,"done":true},{"weight":30,"reps":25,"done":true},{"weight":35,"reps":25,"done":true}],"note":"","focus":"Quadriceps isolé — charge légère, amplitude contrôlée","titulaire":"Leg extension (quadriceps)","target":{"s":2,"r":"15","rest":60},"ptip":"Léger, lent, sans à-coup et sans hyperextension. Toujours après le leg curl.","alt":["Presse à cuisses unilatérale"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00ic6kg","sets":[{"weight":10,"reps":10,"done":true},{"weight":20,"reps":10,"done":true},{"weight":20,"reps":10,"done":true}],"note":""}],"seance":"JAMBES","echauffement":"5-8 min vélo · 1-2 séries légères de leg curl AVANT de charger les quadriceps · 1 série d'approche à la presse."},{"id":"mvlc43rdephfp","date":"2026-10-23","createdAt":1792781999113,"note":"","entries":[{"exerciseId":"mv3ssu003ehl6","sets":[{"weight":20,"reps":10,"done":true},{"weight":30,"reps":10,"done":true},{"weight":30,"reps":10,"done":true},{"weight":40,"reps":10,"done":true}],"note":"","focus":"Pec milieu — poussée horizontale","titulaire":"Chest press (machine)","target":{"s":4,"r":"10-12","rest":120},"ptip":"Poignées à hauteur de poitrine, omoplates plaquées au dossier. Ne verrouille pas les coudes en fin de poussée.","alt":["Développé couché haltères","Développé couché (barre)"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00ylph7","sets":[{"weight":10,"reps":10,"done":true},{"weight":10,"reps":10,"done":true},{"weight":12,"reps":10,"done":true},{"weight":12,"reps":10,"done":true}],"note":"","focus":"Pec haut — faisceau claviculaire","titulaire":"Développé incliné haltères","target":{"s":4,"r":"10-12","rest":90},"ptip":"Banc à 30° maximum. Plus haut, ce sont les épaules qui prennent le travail.","alt":["Développé incliné (machine)","Développé incliné (barre)"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00q50jj","sets":[{"weight":"","reps":"","done":false},{"weight":"","reps":"","done":false},{"weight":"","reps":"","done":false}],"note":"","focus":"Adduction en étirement — le seul mouvement sans poussée","titulaire":"Écarté poulie haute (crossover)","target":{"s":3,"r":"12-15","rest":60},"ptip":"Coudes légèrement fléchis et fixes. Ramène les mains vers le bas du ventre et croise-les en fin de mouvement.","alt":["Pec deck / Butterfly","Écarté poulie basse"],"ordre":false,"ss":false,"chrono":false,"isAlt":true},{"exerciseId":"mv3ssu00z2o4d","sets":[{"weight":40,"reps":11,"done":true},{"weight":50,"reps":10,"done":true},{"weight":60,"reps":10,"done":true}],"note":"","focus":"Bas des pecs — poussée buste penché","titulaire":"Dips (pectoraux)","target":{"s":3,"r":"12","rest":90},"ptip":"Sur la machine assistée si besoin. Buste penché en avant et coudes ouverts : buste droit, ce sont les triceps qui travaillent.","alt":["Dips (triceps)","Pompes"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00h31gq","sets":[{"weight":12.5,"reps":10,"done":true},{"weight":15,"reps":10,"done":true},{"weight":15,"reps":15,"done":true}],"note":"","focus":"Triceps chefs latéral + médial","titulaire":"Extension poulie corde","target":{"s":3,"r":"12","rest":60},"ptip":"Coudes collés au corps, écarte la corde en bas et marque un temps.","alt":["Extension poulie barre","Extension poulie prise inversée"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mvlds7hx04zf1","sets":[{"weight":12.5,"reps":12,"done":true},{"weight":15,"reps":10,"done":true},{"weight":15,"reps":15,"done":true}],"note":"","focus":"Triceps long chef — bras au-dessus de la tête, donc étiré","titulaire":"Extension nuque haltère","target":{"s":3,"r":"12","rest":60},"ptip":"Coudes serrés et pointés vers l'avant, descends derrière la tête jusqu'à sentir l'étirement.","alt":["Extension triceps au-dessus de la tête (poulie)","Barre au front (skull crusher)"],"ordre":false,"ss":false,"chrono":false,"isAlt":true}],"seance":"PEC","echauffement":"5 min cardio léger · rotations d'épaules · 1-2 séries légères d'élévations latérales (réveil de la coiffe) · 1 série d'approche au développé poitrine."},{"id":"mvo9xd4mx2fvl","date":"2026-10-25","createdAt":1792959723958,"note":"","entries":[{"exerciseId":"mv3ssu00w8vbn","sets":[{"weight":15,"reps":20,"done":true},{"weight":20,"reps":20,"done":true},{"weight":15,"reps":30,"done":true}],"note":"","focus":"Ischios — flexion du genou","titulaire":"Leg curl allongé (ischios)","target":{"s":4,"r":"12","rest":90},"ptip":"Toujours en 1er : il stabilise le genou avant les quadriceps. Contrôle la descente, aucun à-coup.","alt":["Leg curl assis (ischios)"],"ordre":true,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00xle98","sets":[{"weight":40,"reps":12,"done":true},{"weight":70,"reps":20,"done":true},{"weight":90,"reps":20,"done":true}],"note":"Machine ","focus":"Quadriceps + fessiers — pieds hauts sur le plateau","titulaire":"Presse à cuisses","target":{"s":4,"r":"12","rest":120},"ptip":"Pieds hauts et écartés : plus de fessiers, moins de cisaillement sur le genou. Amplitude confortable, dos collé au dossier.","alt":["Hack squat","Presse à cuisses unilatérale"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00kap6v","sets":[{"weight":100,"reps":10,"done":true},{"weight":80,"reps":12,"done":true},{"weight":50,"reps":15,"done":true}],"note":"Dégressif ","focus":"Grand fessier — extension de hanche","titulaire":"Hip thrust","target":{"s":3,"r":"12","rest":120},"ptip":"Menton rentré, pousse dans les talons, serre 1 seconde en haut. Mouvement qui encaisse lourd : charge sans crainte.","alt":["Extension de hanche (machine)","Pont fessier"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00huff6","sets":[{"weight":30,"reps":25,"done":true},{"weight":35,"reps":23,"done":true},{"weight":35,"reps":22,"done":true}],"note":"","focus":"Quadriceps isolé — charge légère, amplitude contrôlée","titulaire":"Leg extension (quadriceps)","target":{"s":2,"r":"15","rest":60},"ptip":"Léger, lent, sans à-coup et sans hyperextension. Toujours après le leg curl.","alt":["Presse à cuisses unilatérale"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00ydpdu","sets":[{"weight":20,"reps":20,"done":true},{"weight":20,"reps":25,"done":true},{"weight":30,"reps":20,"done":false}],"note":"","focus":"Moyen fessier — empêche le genou de rentrer","titulaire":"Abducteurs (machine)","target":{"s":3,"r":"15","rest":60},"ptip":"Buste légèrement penché en avant, pousse avec l'extérieur de la hanche.","alt":["Abduction debout poulie"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu007bp50","sets":[{"weight":"","reps":"","done":false},{"weight":"","reps":"","done":false},{"weight":"","reps":"","done":false},{"weight":"","reps":"","done":false}],"note":"","focus":"Gastrocnémiens — jambe tendue","titulaire":"Mollets debout (machine)","target":{"s":4,"r":"15-20","rest":45},"ptip":"Amplitude complète, pause 1 seconde en haut et en bas.","alt":["Mollets assis (machine)","Mollets à la presse"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu000cngg","sets":[{"weight":15,"reps":18,"done":true},{"weight":15,"reps":20,"done":true}],"note":""}],"seance":"JAMBES","echauffement":"5-8 min vélo · 1-2 séries légères de leg curl AVANT de charger les quadriceps · 1 série d'approche à la presse."},{"id":"mvsi2ava4an8h","date":"2026-10-28","createdAt":1793215255943,"note":"","entries":[{"exerciseId":"mv3ssu00j32m2","sets":[{"weight":35,"reps":10,"done":true},{"weight":40,"reps":10,"done":true},{"weight":40,"reps":10,"done":true}],"note":"","focus":"Grand dorsal — largeur (plan vertical)","titulaire":"Tirage vertical poulie","target":{"s":4,"r":"10-12","rest":90},"ptip":"Descends les épaules avant de tirer, barre vers le haut de la poitrine, jamais derrière la nuque.","alt":["Traction assistée (machine)","Tirage vertical prise serrée"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00482jg","sets":[{"weight":15,"reps":13,"done":true},{"weight":17.5,"reps":10,"done":true},{"weight":20,"reps":15,"done":true},{"weight":20,"reps":10,"done":true}],"note":"","focus":"Grand dorsal + rhomboïdes — coudes serrés","titulaire":"Rowing machine (Hammer)","target":{"s":4,"r":"10-12","rest":90},"ptip":"Poitrine contre l'appui, coudes le long du corps : le bas du dos ne travaille pas.","alt":["Tirage horizontal poulie","Rowing haltère (un bras)"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mvih15dv383cq","sets":[{"weight":35,"reps":10,"done":true},{"weight":30,"reps":10,"done":true},{"weight":30,"reps":10,"done":true}],"note":"","focus":"Haut du dos + trapèze moyen — coudes écartés","titulaire":"Tirage horizontal prise large","target":{"s":3,"r":"12","rest":60},"ptip":"Barre large, coudes ouverts à 90°, tire vers le haut du ventre. Trajectoire différente du rowing, c'est le but.","alt":["Rowing T-bar","Tirage bras tendus poulie"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00p1ry6","sets":[{"weight":12.5,"reps":10,"done":true},{"weight":13.75,"reps":10,"done":true},{"weight":15,"reps":12,"done":true}],"note":"","focus":"Deltoïde postérieur + rotateurs externes","titulaire":"Face pull poulie","target":{"s":3,"r":"15","rest":60},"ptip":"Corde au visage, tire vers le front, coudes hauts, reste léger. Ton exo santé d'épaule de conducteur.","alt":["Oiseau (deltoïde postérieur)","Reverse pec deck"],"ordre":false,"ss":false,"chrono":false,"isAlt":true},{"exerciseId":"mv3ssu002uath","sets":[{"weight":15,"reps":10,"done":true},{"weight":17.5,"reps":10,"done":true},{"weight":17.5,"reps":6,"done":true},{"weight":12.5,"reps":4,"done":true}],"note":"","focus":"Biceps — les deux chefs","titulaire":"Curl barre EZ","target":{"s":4,"r":"12","rest":60},"ptip":"Coudes collés et parfaitement immobiles. Aucun balancier du buste.","alt":["Curl machine","Curl haltères"],"ordre":false,"ss":false,"chrono":false,"isAlt":true},{"exerciseId":"mv3ssu00fgugh","sets":[{"weight":10,"reps":10,"done":false},{"weight":"","reps":"","done":false},{"weight":"","reps":"","done":false}],"note":"","focus":"Brachial + brachio-radial — l'épaisseur du bras","titulaire":"Curl marteau","target":{"s":3,"r":"12","rest":60},"ptip":"Prise neutre, coudes fixes. Le brachial, sous le biceps, le pousse vers le haut.","alt":["Curl marteau poulie (corde)"],"ordre":false,"ss":false,"chrono":false}],"seance":"DOS","echauffement":"5 min rameur ou vélo léger · rotations d'épaules · 1-2 séries légères de face pull · 1 série d'approche au tirage vertical."},{"id":"mvtv7p5f1axgq","date":"2026-10-29","createdAt":1793297808915,"note":"","entries":[{"exerciseId":"mv3ssu009iacd","sets":[{"weight":7.5,"reps":12,"done":true},{"weight":15,"reps":10,"done":true},{"weight":15,"reps":12,"done":false}],"note":"Barre homoplate "},{"exerciseId":"mv3ssu004vucl","sets":[{"weight":5,"reps":16,"done":true},{"weight":7.5,"reps":16,"done":true}],"note":"Smith "},{"exerciseId":"mv3ssu00huff6","sets":[{"weight":30,"reps":20,"done":true},{"weight":40,"reps":20,"done":true},{"weight":35,"reps":22,"done":false}],"note":""}]},{"id":"mvvi2d9svuv1z","date":"2026-10-30","createdAt":1793396657584,"note":"","entries":[{"exerciseId":"mv3ssu003ehl6","sets":[{"weight":25,"reps":10,"done":true},{"weight":17.5,"reps":10,"done":true},{"weight":18.75,"reps":10,"done":true}],"note":"","focus":"Pec milieu — poussée horizontale","titulaire":"Chest press (machine)","target":{"s":4,"r":"10-12","rest":120},"ptip":"Poignées à hauteur de poitrine, omoplates plaquées au dossier. Ne verrouille pas les coudes en fin de poussée.","alt":["Développé couché haltères","Développé couché (barre)"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00ylph7","sets":[{"weight":10,"reps":10,"done":true},{"weight":10,"reps":10,"done":true},{"weight":12,"reps":10,"done":true}],"note":"","focus":"Pec haut — faisceau claviculaire","titulaire":"Développé incliné haltères","target":{"s":4,"r":"10-12","rest":90},"ptip":"Banc à 30° maximum. Plus haut, ce sont les épaules qui prennent le travail.","alt":["Développé incliné (machine)","Développé incliné (barre)"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00z2o4d","sets":[{"weight":60,"reps":11,"done":true},{"weight":70,"reps":10,"done":true},{"weight":75,"reps":10,"done":true}],"note":"","focus":"Bas des pecs — poussée buste penché","titulaire":"Dips (pectoraux)","target":{"s":3,"r":"12","rest":90},"ptip":"Sur la machine assistée si besoin. Buste penché en avant et coudes ouverts : buste droit, ce sont les triceps qui travaillent.","alt":["Dips (triceps)","Pompes"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00h31gq","sets":[{"weight":12.5,"reps":10,"done":true},{"weight":15,"reps":10,"done":true},{"weight":12.5,"reps":15,"done":true}],"note":"","focus":"Triceps chefs latéral + médial","titulaire":"Extension poulie corde","target":{"s":3,"r":"12","rest":60},"ptip":"Coudes collés au corps, écarte la corde en bas et marque un temps.","alt":["Extension poulie barre","Extension poulie prise inversée"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mvlds7hx04zf1","sets":[{"weight":12.5,"reps":12,"done":true},{"weight":15,"reps":10,"done":true},{"weight":12.5,"reps":10,"done":true}],"note":""}],"seance":"PEC","echauffement":"5 min cardio léger · rotations d'épaules · 1-2 séries légères d'élévations latérales (réveil de la coiffe) · 1 série d'approche au développé poitrine."},{"id":"mvwnql46dol50","date":"2026-10-31","createdAt":1793466651750,"note":"","entries":[{"exerciseId":"mv3ssu00w8vbn","sets":[{"weight":15,"reps":20,"done":true},{"weight":20,"reps":20,"done":false},{"weight":15,"reps":30,"done":false},{"weight":15,"reps":30,"done":false}],"note":"","focus":"Ischios — flexion du genou","titulaire":"Leg curl allongé (ischios)","target":{"s":4,"r":"12","rest":90},"ptip":"Toujours en 1er : il stabilise le genou avant les quadriceps. Contrôle la descente, aucun à-coup.","alt":["Leg curl assis (ischios)"],"ordre":true,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00xle98","sets":[{"weight":60,"reps":20,"done":true},{"weight":80,"reps":15,"done":true},{"weight":80,"reps":20,"done":true}],"note":"","focus":"Quadriceps + fessiers — pieds hauts sur le plateau","titulaire":"Presse à cuisses","target":{"s":4,"r":"12","rest":120},"ptip":"Pieds hauts et écartés : plus de fessiers, moins de cisaillement sur le genou. Amplitude confortable, dos collé au dossier.","alt":["Hack squat","Presse à cuisses unilatérale"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00kap6v","sets":[{"weight":100,"reps":10,"done":true},{"weight":80,"reps":10,"done":true},{"weight":80,"reps":10,"done":true}],"note":"","focus":"Grand fessier — extension de hanche","titulaire":"Hip thrust","target":{"s":3,"r":"12","rest":120},"ptip":"Menton rentré, pousse dans les talons, serre 1 seconde en haut. Mouvement qui encaisse lourd : charge sans crainte.","alt":["Extension de hanche (machine)","Pont fessier"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00huff6","sets":[{"weight":30,"reps":20,"done":false},{"weight":40,"reps":20,"done":false}],"note":"","focus":"Quadriceps isolé — charge légère, amplitude contrôlée","titulaire":"Leg extension (quadriceps)","target":{"s":2,"r":"15","rest":60},"ptip":"Léger, lent, sans à-coup et sans hyperextension. Toujours après le leg curl.","alt":["Presse à cuisses unilatérale"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu00ydpdu","sets":[{"weight":20,"reps":20,"done":true},{"weight":20,"reps":20,"done":true},{"weight":25,"reps":17,"done":false}],"note":"","focus":"Moyen fessier — empêche le genou de rentrer","titulaire":"Abducteurs (machine)","target":{"s":3,"r":"15","rest":60},"ptip":"Buste légèrement penché en avant, pousse avec l'extérieur de la hanche.","alt":["Abduction debout poulie"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu007bp50","sets":[{"weight":"","reps":"","done":false},{"weight":"","reps":"","done":false},{"weight":"","reps":"","done":false},{"weight":"","reps":"","done":false}],"note":"","focus":"Gastrocnémiens — jambe tendue","titulaire":"Mollets debout (machine)","target":{"s":4,"r":"15-20","rest":45},"ptip":"Amplitude complète, pause 1 seconde en haut et en bas.","alt":["Mollets assis (machine)","Mollets à la presse"],"ordre":false,"ss":false,"chrono":false},{"exerciseId":"mv3ssu000cngg","sets":[{"weight":20,"reps":20,"done":true},{"weight":20,"reps":20,"done":true},{"weight":20,"reps":20,"done":true}],"note":""}],"seance":"JAMBES","echauffement":"5-8 min vélo · 1-2 séries légères de leg curl AVANT de charger les quadriceps · 1 série d'approche à la presse."}],"bodyweights":[],"settings":{"theme":"dark","restSec":90,"rpe":false,"seeded":true},"updatedAt":1793470224735};
 
 /* Mode hors-ligne (uniquement hors artifact Claude) */
 if("serviceWorker" in navigator && location.protocol.startsWith("http")){
@@ -1190,11 +1269,13 @@ if("serviceWorker" in navigator && location.protocol.startsWith("http")){
 (function init(){
   const loc=loadLocal();
   if(loc)state=loc;
+  const restored=applyEmbeddedBackup();
   seedIfNeeded();
   applyTheme();
-  saveLocal();
+  saveLocal();   // sans toucher à updatedAt : le compte garde la priorité s'il est plus récent
   renderHeader();
   go("seance");
+  if(restored) setTimeout(()=>toast("Sauvegarde du 2 nov. chargée ✓"),500);
   initDb();      // se connecte au compte en tâche de fond puis fusionne
 })();
 </script>
